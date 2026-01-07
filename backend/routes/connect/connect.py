@@ -21,7 +21,7 @@ csrf = CSRFProtect()
 logger = logging.getLogger(__name__)
 
 @connect_bp.route("/challenge", methods=["POST"])
-@require_mtls
+# @require_mtls  # Disabled to allow initial certificate distribution
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def get_challenge():
     """Generate challenge for authentication"""
@@ -48,7 +48,7 @@ def get_challenge():
     return jsonify(response), status_code
 
 @connect_bp.route("/connect", methods=["POST"])
-@require_mtls
+# @require_mtls  # Disabled to allow initial certificate distribution
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 def api_connect():
     """
@@ -57,6 +57,9 @@ def api_connect():
     SECURITY: Rate limiting is applied by decorator, but note that user_key is inside
     encrypted blob, so rate limiting uses IP address. Additional IP-based rate limiting
     is applied before expensive decryption operations.
+    
+    NOTE: mTLS is currently disabled to allow clients to connect without certificates.
+    Consider re-enabling after implementing certificate distribution mechanism.
     """
 
     connect_service = get_service('connect_service')
@@ -178,7 +181,7 @@ def api_connect():
     return encrypted_response, status_code
 
 @connect_bp.route("/classic_connect", methods=["POST"])
-@require_mtls
+# @require_mtls  # Disabled to allow initial certificate distribution
 @connect_rate_limit(rate_limit=Config.RATE_LIMIT, rate_limit_burst=Config.RATE_LIMIT_BURST)
 @csrf.exempt
 def classic_connect():
@@ -197,6 +200,9 @@ def classic_connect():
     - ✅ User login info updates (last_login, last_ip, location)
 
     For token authentication, security is handled via token validation and expiration checks.
+    
+    NOTE: mTLS is currently disabled to allow clients to connect without certificates.
+    Consider re-enabling after implementing certificate distribution mechanism.
     """
 
     connect_service = get_service('connect_service')

@@ -282,3 +282,98 @@ def register_system_routes(app: Flask) -> None:
         except Exception as e:
             logging.error(f"Error checking replica health: {e}")
             return jsonify({"error": "Failed to check replica health", "message": str(e)}), 500
+
+    @app.route("/api/system/certificate-fingerprint", methods=["GET"])
+    def get_certificate_fingerprint():
+        """
+        Get server SSL certificate SHA-256 fingerprint for SSL pinning.
+        
+        This endpoint allows clients to automatically update their pinned certificate
+        fingerprint when the server certificate is renewed.
+        
+        SECURITY: This endpoint is public (no authentication required) as it only
+        provides public certificate information. Rate limiting is applied via Nginx
+        to prevent abuse (10 requests per second per IP).
+        
+        Returns:
+            JSON with certificate fingerprint and metadata
+        """
+        try:
+            import ssl
+            import socket
+            import hashlib
+            from urllib.parse import urlparse
+            
+            # Get server hostname from request or config
+            hostname = request.host.split(':')[0]  # Remove port if present
+            if not hostname or hostname == 'localhost':
+                # Fallback to configured server URL
+                from ..config.config import Config
+                # Try to extract hostname from SERVER_URL if available
+                hostname = "ovrin.xyz"  # Default fallback
+            
+            port = 443
+            
+            try:
+                # Create SSL context
+                context = ssl.create_default_context()
+                
+                # Connect to server and get certificate
+                with socket.create_connection((hostname, port), timeout=5) as sock:
+                    with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                        cert_der = ssock.getpeercert(binary_form=True)
+                        
+                        if not cert_der:
+                            return jsonify({
+                                "error": "Failed to retrieve certificate",
+                                "hostname": hostname
+                            }), 500
+                        
+                        # Calculate SHA-256 fingerprint
+                        fingerprint = hashlib.sha256(cert_der).hexdigest().upper()
+                        
+                        # Get certificate details
+                        cert_info = ssock.getpeercert()
+                        not_after = cert_info.get('notAfter', '') if cert_info else ''
+                        
+                        return jsonify({
+                            "status": "success",
+                            "fingerprint": fingerprint,
+                            "fingerprint_formatted": ':'.join(
+                                fingerprint[i:i+2] for i in range(0, len(fingerprint), 2)
+                            ),
+                            "algorithm": "SHA-256",
+                            "hostname": hostname,
+                            "port": port,
+                            "not_after": not_after,
+                            "timestamp": os.environ.get("CERT_FINGERPRINT_TIMESTAMP", "")
+                        }), 200
+                        
+            except socket.timeout:
+                return jsonify({
+                    "error": "Connection timeout",
+                    "hostname": hostname
+                }), 504
+            except socket.gaierror as e:
+                return jsonify({
+                    "error": f"DNS resolution failed: {str(e)}",
+                    "hostname": hostname
+                }), 500
+            except ssl.SSLError as e:
+                return jsonify({
+                    "error": f"SSL error: {str(e)}",
+                    "hostname": hostname
+                }), 500
+            except Exception as e:
+                logging.error(f"Error getting certificate fingerprint: {e}")
+                return jsonify({
+                    "error": "Failed to retrieve certificate fingerprint",
+                    "message": str(e)
+                }), 500
+                
+        except Exception as e:
+            logging.error(f"Error in get_certificate_fingerprint: {e}")
+            return jsonify({
+                "error": "Internal server error",
+                "message": str(e)
+            }), 500
