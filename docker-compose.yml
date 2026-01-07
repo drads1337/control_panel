@@ -109,7 +109,7 @@ services:
         echo 'Waiting for database to be ready...' &&
         sleep 5 &&
         echo 'Running database migrations...' &&
-        python -c 'from backend.core.app import create_app; app = create_app(); from flask_migrate import upgrade; app.app_context().push(); upgrade()' || echo 'Migrations may have already been applied' &&
+        python -c 'from backend.core.app import create_app; app = create_app(); from flask_migrate import upgrade; app.app_context().push(); upgrade(directory=\"backend/migrations\")' || echo 'Migrations may have already been applied' &&
         echo 'Starting API server...' &&
         gunicorn -c backend/scripts/gunicorn.conf.py backend.scripts.wsgi:application
       "
