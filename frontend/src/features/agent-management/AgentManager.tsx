@@ -169,7 +169,7 @@ export default function AgentManager({
         title="No Agents Yet"
         description="Get started by creating your first agent. You can manage settings, upload files, and track usage."
         actionLabel="Create Your First Agent"
-        onAction={() => setShowCreateDialog(true)}
+        onAction={() => openCreateDialog()}
         canAction={canCreateAgents}
         icon={Container}
         iconStyle="gradient"
@@ -205,7 +205,7 @@ export default function AgentManager({
           </Button>
           <ConditionalRender permission="agents.create" fallback={null}>
             <Button
-              onClick={() => setShowCreateDialog(true)}
+              onClick={() => openCreateDialog()}
               size="sm"
               className="h-8 text-xs gap-1.5"
             >

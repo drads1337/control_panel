@@ -197,19 +197,46 @@ export default function ProductDatabase({
   
   if (!loading && filteredProducts.length === 0 && products.length === 0) {
     return (
-      <EmptyState
-        title="No Products Yet"
-        description="Get started by creating your first product. You can manage settings, upload files, and track usage."
-        actionLabel="Create Your First Product"
-        onAction={() => setShowCreateDialog(true)}
-        canAction={canCreateProducts}
-        icon={Package}
-        iconStyle="gradient"
-        useCard={true}
-        buttonSize="lg"
-        showButtonIcon={true}
-        titleTag="h3"
-      />
+      <>
+        <EmptyState
+          title="No Products Yet"
+          description="Get started by creating your first product. You can manage settings, upload files, and track usage."
+          actionLabel="Create Your First Product"
+          onAction={() => setShowCreateDialog(true)}
+          canAction={canCreateProducts}
+          icon={Package}
+          iconStyle="gradient"
+          useCard={true}
+          buttonSize="lg"
+          showButtonIcon={true}
+          titleTag="h3"
+        />
+        <ProductDatabaseDialogs
+          showCreateDialog={showCreateDialog}
+          showEditDialog={showEditDialog}
+          showUploadDialog={showUploadDialog}
+          showPricesDialog={showPricesDialog}
+          showNotificationsDialog={showNotificationsDialog}
+          showChangelogDialog={showChangelogDialog}
+          selectedProduct={selectedProduct}
+          canEditProducts={canEditProducts}
+          canCreateProducts={canCreateProducts}
+          canUploadFiles={canUploadFiles}
+          canManagePrices={canManagePrices}
+          canManageNotifications={canManageNotifications}
+          canManageChangelog={canManageChangelog}
+          setShowCreateDialog={setShowCreateDialog}
+          setShowEditDialog={setShowEditDialog}
+          setShowUploadDialog={setShowUploadDialog}
+          setShowPricesDialog={setShowPricesDialog}
+          setShowNotificationsDialog={setShowNotificationsDialog}
+          setShowChangelogDialog={setShowChangelogDialog}
+          setSelectedProduct={setSelectedProduct}
+          closeAllDialogs={closeAllDialogs}
+          onSuccess={refetch}
+          onUploadComplete={refetch}
+        />
+      </>
     );
   }
 

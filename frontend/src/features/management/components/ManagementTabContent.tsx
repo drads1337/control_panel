@@ -43,7 +43,10 @@ export const ManagementTabContent: React.FC<ManagementTabContentProps> = ({
       <div className="space-y-3 sm:space-y-4">
         <Suspense fallback={<div className="flex flex-col items-center justify-center gap-2 min-h-[250px] sm:min-h-[400px]"><Spinner size="lg" /><span className="text-sm text-muted-foreground">Loading license keys...</span></div>}>
           <LicenseKeysMain 
-            onSwitchToProductDatabase={() => setActiveTab('product-database')} 
+            onSwitchToProductDatabase={() => {
+              setCreateProductDialogRequested(true);
+              setActiveTab('product-database');
+            }} 
             activeTab={activeTab}
           />
         </Suspense>

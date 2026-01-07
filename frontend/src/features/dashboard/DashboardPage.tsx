@@ -127,6 +127,15 @@ export default function Dashboard01Block() {
   const setupMapLayers = useCallback((points: MapRequestPoint[]) => {
     if (!map.current || points.length === 0) return
 
+    // Check if map style is loaded before adding sources
+    if (!map.current.isStyleLoaded()) {
+      // Wait for style to load before proceeding
+      map.current.once('style.load', () => {
+        setupMapLayers(points)
+      })
+      return
+    }
+
     const isDark = resolvedTheme === "dark"
     const themeClass = isDark ? "panel-dark" : "panel-light"
 
@@ -309,7 +318,15 @@ export default function Dashboard01Block() {
 
     const points = mapData.points || []
     if (points.length > 0) {
-      setupMapLayers(points)
+      // Only setup layers if style is loaded, otherwise setupMapLayers will wait for it
+      if (map.current.isStyleLoaded()) {
+        setupMapLayers(points)
+      } else {
+        // Wait for style to load before setting up layers
+        map.current.once('style.load', () => {
+          setupMapLayers(points)
+        })
+      }
     }
   }, [mapData, setupMapLayers])
 

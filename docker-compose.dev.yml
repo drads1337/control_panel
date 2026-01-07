@@ -1,0 +1,50 @@
+# Development docker-compose configuration
+# Использование: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Этот файл переопределяет конфигурацию для разработки:
+# - Использует Flask dev server с hot reload
+# - Монтирует код для автоматической перезагрузки
+
+services:
+  api:
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        sleep 5 &&
+        echo 'Running database migrations...' &&
+        python -c 'from backend.core.app import create_app; app = create_app(); from flask_migrate import upgrade; app.app_context().push(); upgrade(directory=\"backend/migrations\")' || echo 'Migrations may have already been applied' &&
+        echo 'Starting Flask development server...' &&
+        python -m backend.scripts.run
+      "
+    # Flask dev server будет перезагружаться при изменении файлов благодаря volume
+
+  celery_worker_default:
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+    # Celery workers будут перезагружаться при изменении файлов благодаря volume
+
+  celery_worker_server:
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+
+  celery_worker_keys:
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+
+  flower:
+    environment:
+      FLASK_ENV: development
+
+  # Для фронтенда в режиме разработки лучше запускать Vite dev server локально
+  # или использовать volume для dist. Здесь отключаем nginx для dev режима
+  nginx:
+    profiles:
+      - production
+    # В dev режиме nginx не нужен, фронтенд запускается через Vite dev server
+

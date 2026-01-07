@@ -150,7 +150,11 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ open, onOpenChang
             </Button>
             <ConditionalRender permission="agents.create" fallback={null}>
               <Button 
-                onClick={handleSubmit}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }}
                 disabled={loading || !formData.name.trim()}
                 className="h-8 text-xs min-w-[80px]"
               >
