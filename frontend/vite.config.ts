@@ -291,6 +291,9 @@ export default defineConfig(({ mode }) => {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
       'process.browser': true,
       'global': 'globalThis',
+      // Prevent CommonJS exports from being referenced in browser
+      'typeof exports': '"undefined"',
+      'typeof module': '"undefined"',
     },
     resolve: {
       alias: {
@@ -352,6 +355,7 @@ export default defineConfig(({ mode }) => {
         format: {
           comments: false, // Remove all comments
           ascii_only: false, // Allow non-ASCII characters for smaller output
+          ecma: 2020, // Use ES2020 (ES modules) format
         },
         mangle: {
           safari10: true, // Fix Safari 10 issues
@@ -480,6 +484,11 @@ export default defineConfig(({ mode }) => {
           generatedCode: {
             constBindings: true, // Use const instead of var for better tree-shaking
             preset: 'es2015', // Use ES2015 preset for better compatibility
+            // Ensure no CommonJS exports are generated - force ESM only
+            objectShorthand: true,
+            arrowFunctions: true,
+            // Explicitly prevent CommonJS code generation
+            symbols: true,
           },
           // Optimize chunk loading
           compact: true, // Compact output for smaller files
@@ -487,10 +496,17 @@ export default defineConfig(({ mode }) => {
         // External dependencies that shouldn't be bundled (if using CDN)
         // external: [], // Add any external deps here if using CDN
       },
-      // Enable better tree-shaking
+      // Enable better tree-shaking and force CommonJS to ESM conversion
       commonjsOptions: {
-        include: [/lodash/, /node_modules/],
+        include: [/node_modules/], // Transform ALL node_modules CommonJS to ESM
         transformMixedEsModules: true,
+        strictRequires: 'auto', // Auto-detect strict requires
+        requireReturnsDefault: 'auto', // Auto-detect default exports
+        defaultIsModuleExports: 'auto', // Auto-detect module.exports
+        // Force transformation of all CommonJS modules
+        ignore: [],
+        // Convert require() calls to imports
+        sourceMap: false,
       },
       // Additional optimizations for smaller bundles
       assetsInlineLimit: 4096, // Inline small assets (<4KB) as base64 to reduce HTTP requests
