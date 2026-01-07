@@ -21,32 +21,18 @@ worker_tmp_dir = "/dev/shm"
 
 
 
+# NOTE: mTLS is handled by Nginx, not Gunicorn
+# Nginx processes SSL/TLS on port 443 and proxies to Gunicorn via HTTP on port 5001
+# Client certificate validation happens at Nginx level and is passed to Flask via headers
+# Gunicorn should NOT use SSL - it communicates with Nginx over HTTP inside Docker network
+
 MTLS_ENABLED = os.environ.get("MTLS_ENABLED", "false").lower() == "true"
 
 if MTLS_ENABLED:
-
-    keyfile = os.environ.get("MTLS_SERVER_KEY", "/etc/ssl/private/server.key")
-    certfile = os.environ.get("MTLS_SERVER_CERT", "/etc/ssl/certs/server.crt")
-    
-
-    ca_certs = os.environ.get("MTLS_CA_CERT_PATH", "/etc/ssl/certs/ca-cert.pem")
-    
-
-
-
-    cert_reqs = 2
-    
-
-
-
-    
-
     import logging
     logger = logging.getLogger("gunicorn.error")
-    logger.info(f"mTLS enabled: server_cert={certfile}, ca_cert={ca_certs}")
+    logger.info("mTLS enabled: SSL/TLS handled by Nginx, Gunicorn using HTTP")
+    # Do NOT configure SSL here - Nginx handles it
+    # Gunicorn receives requests from Nginx over HTTP with mTLS headers
 else:
-
-
-
-
     pass
