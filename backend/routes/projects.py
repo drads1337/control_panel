@@ -34,9 +34,21 @@ _mtls_manager = MTLSProjectManager()
 
 def _get_project_by_identifier(project_id: str | int):
     """Fetch project by numeric id or unique_id string."""
-    return Project.query.filter(
-        or_(Project.id == project_id, Project.unique_id == str(project_id))
-    ).first()
+    # Сначала пытаемся найти по unique_id (строка)
+    project = Project.query.filter_by(unique_id=str(project_id)).first()
+    if project:
+        return project
+    
+    # Если не нашли по unique_id, пробуем по числовому id (только если это число)
+    try:
+        project_id_int = int(project_id)
+        project = Project.query.filter_by(id=project_id_int).first()
+        if project:
+            return project
+    except (ValueError, TypeError):
+        pass
+    
+    return None
 
 @projects_bp.route("/projects", methods=["GET"])
 @jwt_required()

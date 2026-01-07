@@ -258,8 +258,22 @@ def _get_cert_via_api(project_id: str, client_name: str, user_key: str, key_path
     print(f"[mTLS] Отправка CSR на сервер...")
     # Отключаем проверку SSL если нужно (для локального тестирования)
     verify_ssl = os.environ.get("VERIFY_SSL", "true").lower() == "true"
-    response = requests.post(url, json=data, timeout=30, verify=verify_ssl)
-    response.raise_for_status()
+    try:
+        response = requests.post(url, json=data, timeout=30, verify=verify_ssl)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        # Детальная обработка HTTP ошибок
+        if hasattr(e.response, 'status_code') and e.response.status_code == 500:
+            try:
+                error_data = e.response.json()
+                error_msg = error_data.get("error", "Internal Server Error")
+                print(f"[mTLS] ❌ Ошибка сервера (500): {error_msg}")
+                print(f"[mTLS] 💡 Возможно, нужно перезапустить Docker на сервере для применения изменений")
+                if "CA" in error_msg or "certificate" in error_msg.lower():
+                    print(f"[mTLS] 💡 Или CA для проекта не создан на сервере")
+            except:
+                print(f"[mTLS] ❌ Ошибка сервера (500): {e.response.text[:200] if hasattr(e.response, 'text') else str(e)}")
+        raise
     
     result = response.json()
     client_cert = result["certificate"]
