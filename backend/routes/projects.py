@@ -570,12 +570,26 @@ def sign_project_csr_public(project_id):
         if key.status != 1:
             return jsonify({"error": "Key is not active"}), 403
 
+        # Автоматически создаем CA для проекта, если его нет
+        try:
+            _mtls_manager.ensure_project_ca(project.unique_id, project.name)
+            logging.info(f"Ensured CA exists for project {project.unique_id}")
+        except Exception as e:
+            logging.error(f"Error ensuring CA for project {project.unique_id}: {e}")
+            # Продолжаем - возможно CA уже существует
+
         # Подписываем CSR
-        client_cert, ca_cert, fingerprint = _mtls_manager.sign_csr(
-            project_id=project.unique_id,
-            csr_pem=csr_pem,
-            client_name=client_name,
-        )
+        try:
+            client_cert, ca_cert, fingerprint = _mtls_manager.sign_csr(
+                project_id=project.unique_id,
+                csr_pem=csr_pem,
+                client_name=client_name,
+            )
+        except Exception as e:
+            logging.error(f"Error signing CSR: {e}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
+            return jsonify({"error": f"Failed to sign CSR: {str(e)}"}), 500
 
         logging.info(f"CSR signed for user_key {user_key[:10]}... in project {project_id}")
 
@@ -594,4 +608,9 @@ def sign_project_csr_public(project_id):
         )
     except Exception as e:
         logging.error(f"Error signing CSR for project {project_id}: {e}")
-        return jsonify({"error": "Failed to sign CSR"}), 500
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
+        error_msg = str(e)
+        if "CA" in error_msg or "certificate" in error_msg.lower():
+            return jsonify({"error": f"Certificate error: {error_msg}. Ensure project CA exists."}), 500
+        return jsonify({"error": f"Failed to sign CSR: {error_msg}"}), 500

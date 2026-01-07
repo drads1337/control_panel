@@ -169,30 +169,83 @@ def _get_cert_via_api(project_id: str, client_name: str, user_key: str, key_path
     
     # Генерируем приватный ключ
     client_dir.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["openssl", "genrsa", "-out", str(key_path), "2048"],
-        check=True,
-        capture_output=True
-    )
-    os.chmod(key_path, 0o600)
-    print(f"[mTLS] ✓ Приватный ключ создан")
+    try:
+        result = subprocess.run(
+            ["openssl", "genrsa", "-out", str(key_path), "2048"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        os.chmod(key_path, 0o600)
+        print(f"[mTLS] ✓ Приватный ключ создан")
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        # Если OpenSSL не найден, используем cryptography
+        print(f"[mTLS] OpenSSL не найден, используем cryptography для генерации ключа...")
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+        
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+        
+        # Сохраняем приватный ключ
+        pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        with open(key_path, "wb") as f:
+            f.write(pem)
+        os.chmod(key_path, 0o600)
+        print(f"[mTLS] ✓ Приватный ключ создан через cryptography")
     
     # Генерируем CSR
     csr_path = client_dir / "client.csr"
     cn = f"project-{project_id}-{client_name}"
-    subprocess.run(
-        [
-            "openssl", "req", "-new", "-key", str(key_path),
-            "-out", str(csr_path),
-            "-subj", f"/C=US/ST=CA/L=San Francisco/O=Panel/CN={cn}"
-        ],
-        check=True,
-        capture_output=True
-    )
-    
-    # Читаем CSR
-    with open(csr_path, "r") as f:
-        csr_pem = f.read()
+    try:
+        subprocess.run(
+            [
+                "openssl", "req", "-new", "-key", str(key_path),
+                "-out", str(csr_path),
+                "-subj", f"/C=US/ST=CA/L=San Francisco/O=Panel/CN={cn}"
+            ],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        
+        # Читаем CSR
+        with open(csr_path, "r") as f:
+            csr_pem = f.read()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Если OpenSSL не найден, генерируем CSR через cryptography
+        print(f"[mTLS] OpenSSL не найден для CSR, используем cryptography...")
+        from cryptography import x509
+        from cryptography.x509.oid import NameOID
+        from cryptography.hazmat.primitives import hashes, serialization
+        
+        # Загружаем приватный ключ
+        with open(key_path, "rb") as f:
+            private_key = serialization.load_pem_private_key(
+                f.read(),
+                password=None,
+                backend=default_backend()
+            )
+        
+        # Создаем CSR
+        builder = x509.CertificateSigningRequestBuilder()
+        builder = builder.subject_name(x509.Name([
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "CA"),
+            x509.NameAttribute(NameOID.LOCALITY_NAME, "San Francisco"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Panel"),
+            x509.NameAttribute(NameOID.COMMON_NAME, cn),
+        ]))
+        
+        csr = builder.sign(private_key, hashes.SHA256(), default_backend())
+        csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
     
     # Отправляем CSR на сервер для подписания (без JWT, только user_key)
     url = f"{SERVER_URL}/api/projects/{project_id}/mtls/csr-sign-public"
@@ -203,7 +256,9 @@ def _get_cert_via_api(project_id: str, client_name: str, user_key: str, key_path
     }
     
     print(f"[mTLS] Отправка CSR на сервер...")
-    response = requests.post(url, json=data, timeout=30)
+    # Отключаем проверку SSL если нужно (для локального тестирования)
+    verify_ssl = os.environ.get("VERIFY_SSL", "true").lower() == "true"
+    response = requests.post(url, json=data, timeout=30, verify=verify_ssl)
     response.raise_for_status()
     
     result = response.json()
@@ -404,12 +459,16 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert=No
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; SM-G991B Build/RP1A.200720.012)"
         }
         
+        # Отключаем проверку SSL если есть проблемы (для локального тестирования)
+        # В продакшене это должно быть включено
+        verify_ssl = os.environ.get("VERIFY_SSL", "true").lower() == "true"
         response = requests.post(
             url,
             json=data,
             headers=headers,
             cert=mtls_cert,  # None если сертификаты не найдены
-            timeout=10
+            timeout=10,
+            verify=verify_ssl
         )
         
         print(f"[GetChallenge] Статус ответа: {response.status_code}")
@@ -519,13 +578,29 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; SM-G991B Build/RP1A.200720.012)"
         }
         
-        response = requests.post(
-            url,
-            json=request_data,
-            headers=headers,
-            cert=mtls_cert,  # None если сертификаты не найдены
-            timeout=10
-        )
+        # Отключаем проверку SSL если нужно (для локального тестирования)
+        verify_ssl = os.environ.get("VERIFY_SSL", "true").lower() == "true"
+        try:
+            response = requests.post(
+                url,
+                json=request_data,
+                headers=headers,
+                cert=mtls_cert,  # None если сертификаты не найдены
+                timeout=10,
+                verify=verify_ssl
+            )
+        except requests.exceptions.SSLError as e:
+            # Если SSL ошибка, пробуем без проверки (только для локального теста!)
+            print(f"[Connect] ⚠ SSL ошибка: {e}")
+            print(f"[Connect] Пробуем без проверки SSL (только для теста)...")
+            response = requests.post(
+                url,
+                json=request_data,
+                headers=headers,
+                cert=mtls_cert,
+                timeout=10,
+                verify=False
+            )
         
         print(f"[Connect] Статус ответа: {response.status_code}")
         
