@@ -307,6 +307,8 @@ export default defineConfig(({ mode }) => {
         "tty": "tty-browserify",
         "assert": "assert",
         "events": "events",
+        // Force browser-friendly inherits implementation
+        "inherits": "inherits/inherits_browser",
       },
       // Explicitly set extensions to ensure TypeScript files are resolved
       // Order matters: TypeScript files first for better resolution
