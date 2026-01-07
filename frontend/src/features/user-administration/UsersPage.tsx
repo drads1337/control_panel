@@ -21,6 +21,7 @@ import { useAuthContext } from "@/app/providers/auth-provider"
 import { useUsersQuery } from "@/entities/user"
 import { usePermissions } from "@/shared/hooks/use-permissions"
 import { AccessDenied } from "@/shared/ui/components"
+import { authService } from "@/shared/api/auth-service"
 import UsersStats from "./components/UsersStats"
 import EmployeesTab from "./components/EmployeesTab"
 import ClientsTab from "./components/ClientsTab"
@@ -37,7 +38,6 @@ export function UsersPage() {
     if (!contextUser) {
       // Try to get from cache
       try {
-        const authService = require('@/shared/api/auth-service').authService
         const cached = authService.getCachedUserFromMemory()
         if (cached) {
           setCachedUser(cached)

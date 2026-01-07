@@ -494,13 +494,15 @@ export default defineConfig(({ mode }) => {
         // external: [], // Add any external deps here if using CDN
       },
       // Enable better tree-shaking and force CommonJS to ESM conversion
+      // Note: Vite uses esbuild for CommonJS transformation, but we configure Rollup options here
+      // for any remaining CommonJS modules that need explicit handling during production build
       commonjsOptions: {
         include: [/node_modules/], // Transform ALL node_modules CommonJS to ESM
         transformMixedEsModules: true,
-        strictRequires: 'auto', // Auto-detect strict requires
+        strictRequires: true, // Force strict requires for better transformation
         requireReturnsDefault: 'auto', // Auto-detect default exports
         defaultIsModuleExports: 'auto', // Auto-detect module.exports
-        // Force transformation of all CommonJS modules
+        // Force transformation of all CommonJS modules - don't ignore any
         ignore: [],
         // Convert require() calls to imports
         sourceMap: false,
@@ -544,6 +546,8 @@ export default defineConfig(({ mode }) => {
         plugins: [],
         // Fix lodash CommonJS imports for recharts
         format: 'esm',
+        // Ensure all CommonJS is transformed to ESM for browser
+        platform: 'browser',
       },
       // Fix lodash imports for recharts compatibility
       resolve: {
