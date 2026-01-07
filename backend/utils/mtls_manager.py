@@ -117,11 +117,9 @@ class MTLSProjectManager:
         ca_dir = project_dir / "ca"
         ca_key = ca_dir / "ca-key.pem"
         ca_cert = ca_dir / "ca-cert.pem"
-        client_csr = client_dir / "client.csr"
         client_cert = client_dir / "client-cert.pem"
 
         normalized_csr = self._normalize_pem(csr_pem)
-        client_csr.write_text(normalized_csr)
 
         # Enforce CN prefix in CSR
         csr_cn = self._extract_cn_from_csr(normalized_csr)
@@ -131,7 +129,11 @@ class MTLSProjectManager:
                 f"CSR CN must start with '{expected_prefix}' (got '{csr_cn}')"
             )
 
-        # Build extfile for EKU clientAuth
+        # Use temporary files for CSR and extfile to avoid permission issues
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csr", delete=False) as csr_file:
+            csr_file.write(normalized_csr)
+            csr_file_path = csr_file.name
+
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as extfile:
             extfile.write(
                 "[v3_req]\n"
@@ -139,6 +141,9 @@ class MTLSProjectManager:
                 "extendedKeyUsage = clientAuth\n"
             )
             extfile_path = extfile.name
+
+        # Ensure client_dir exists for certificate output
+        client_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             self._run(
@@ -149,7 +154,7 @@ class MTLSProjectManager:
                     "-days",
                     str(days_valid),
                     "-in",
-                    str(client_csr),
+                    csr_file_path,
                     "-CA",
                     str(ca_cert),
                     "-CAkey",
@@ -165,6 +170,11 @@ class MTLSProjectManager:
                 "sign client CSR",
             )
         finally:
+            # Clean up temporary files
+            try:
+                os.unlink(csr_file_path)
+            except OSError:
+                pass
             try:
                 os.unlink(extfile_path)
             except OSError:
