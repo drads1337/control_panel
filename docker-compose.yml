@@ -242,6 +242,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        VITE_MAPBOX_TOKEN: ${VITE_MAPBOX_TOKEN}
     container_name: panel_nginx
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
