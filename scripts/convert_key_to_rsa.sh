@@ -49,30 +49,66 @@ fi
 
 # Конвертируем PKCS#8 в RSA формат
 echo ""
-echo "Конвертация: $KEY_FILE -> $RSA_KEY_FILE"
-if openssl rsa -in "$KEY_FILE" -out "$RSA_KEY_FILE" 2>/dev/null; then
-    chmod 600 "$RSA_KEY_FILE"
-    echo "✓ Ключ успешно сконвертирован в RSA формат"
-    echo ""
-    echo "Файлы:"
-    echo "  Original (PKCS#8): $KEY_FILE"
-    echo "  RSA format:        $RSA_KEY_FILE"
-    echo ""
-    echo "⚠ ВАЖНО: Теперь используйте client-key-rsa.pem вместо client-key.pem"
-    echo ""
-    echo "Обновите пути в вашем Android приложении:"
-    echo "  CLIENT_KEY_PATH = \".../client-key-rsa.pem\""
-    echo ""
-    echo "Или замените оригинальный файл (ОСТОРОЖНО - создаст резервную копию):"
-    echo "  mv $KEY_FILE ${KEY_FILE}.pkcs8.backup"
-    echo "  mv $RSA_KEY_FILE $KEY_FILE"
+echo "Конвертация: $KEY_FILE -> RSA формат"
+
+# Создаем резервную копию
+BACKUP_FILE="${KEY_FILE}.pkcs8.backup.$(date +%Y%m%d_%H%M%S)"
+cp "$KEY_FILE" "$BACKUP_FILE"
+echo "✓ Создана резервная копия: $BACKUP_FILE"
+
+# Конвертируем во временный файл
+TEMP_RSA_KEY="${KEY_FILE}.rsa.tmp"
+if openssl rsa -in "$KEY_FILE" -out "$TEMP_RSA_KEY" 2>/dev/null; then
+    chmod 600 "$TEMP_RSA_KEY"
+    
+    # Проверяем, что конвертированный ключ соответствует сертификату (если есть)
+    if [ -f "$CLIENT_DIR/client-cert.pem" ]; then
+        CERT_FILE="$CLIENT_DIR/client-cert.pem"
+        if openssl x509 -noout -modulus -in "$CERT_FILE" 2>/dev/null | openssl md5 > /tmp/cert_mod.txt && \
+           openssl rsa -noout -modulus -in "$TEMP_RSA_KEY" 2>/dev/null | openssl md5 > /tmp/key_mod.txt && \
+           cmp -s /tmp/cert_mod.txt /tmp/key_mod.txt 2>/dev/null; then
+            echo "✓ Конвертированный ключ соответствует сертификату"
+            KEY_MATCHES=true
+            rm -f /tmp/cert_mod.txt /tmp/key_mod.txt
+        else
+            echo "⚠ Предупреждение: конвертированный ключ может не соответствовать сертификату"
+            KEY_MATCHES=false
+            rm -f /tmp/cert_mod.txt /tmp/key_mod.txt
+        fi
+    else
+        echo "⚠ Сертификат не найден, пропускаем проверку соответствия"
+        KEY_MATCHES=true
+    fi
+    
+    # Заменяем оригинальный файл
+    if [ "$KEY_MATCHES" = true ]; then
+        mv "$TEMP_RSA_KEY" "$KEY_FILE"
+        chmod 600 "$KEY_FILE"
+        echo "✓ Ключ успешно сконвертирован и заменен на RSA формат"
+        echo ""
+        echo "Файлы:"
+        echo "  Original (PKCS#8): $BACKUP_FILE (резервная копия)"
+        echo "  RSA format:        $KEY_FILE (заменен)"
+        echo ""
+        echo "✓ Готово! Теперь используйте client-key.pem (в RSA формате)"
+    else
+        echo "❌ Конвертация отменена из-за несоответствия ключа и сертификата"
+        mv "$BACKUP_FILE" "$KEY_FILE"
+        rm -f "$TEMP_RSA_KEY"
+        exit 1
+    fi
 else
     echo "❌ Ошибка при конвертации ключа"
+    rm -f "$TEMP_RSA_KEY"
+    mv "$BACKUP_FILE" "$KEY_FILE"
     echo ""
     echo "Возможные причины:"
-    echo "  1. OpenSSL не установлен"
+    echo "  1. OpenSSL не установлен или версия не поддерживает эту команду"
     echo "  2. Ключ защищен паролем (не поддерживается)"
     echo "  3. Ключ поврежден"
+    echo ""
+    echo "Попробуйте использовать команду вручную:"
+    echo "  openssl rsa -in $KEY_FILE -out ${KEY_FILE}.rsa"
     exit 1
 fi
 
