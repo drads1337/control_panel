@@ -11,7 +11,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # NOTE: С единым CA для всех клиентов:
 #   - client_name может быть ЛЮБЫМ: "android", "mobile", "my-app", "client-1", etc.
 #   - Все сертификаты подписываются единым CA (nginx/ssl/ca-cert.pem)
-#   - Главное - правильный CN: project-<project_id>-<client_name>
+#   - CN сертификата = просто client_name (универсальный, без project_id prefix)
 PROJECT_ID="${1:-${PROJECT_ID:-2920317791}}"
 CLIENT_NAME="${2:-${CLIENT_NAME:-android}}"  # Может быть любым: "android", "mobile", "myapp", etc.
 USER_KEY="${3:-${USER_KEY:-}}"
@@ -59,13 +59,52 @@ fi
 # Если сертификатов нет и есть user_key, создаем через API
 if [ -n "$USER_KEY" ]; then
     echo "Генерация сертификатов через API с user_key..."
+    echo "Project ID: $PROJECT_ID"
+    echo "Client Name: $CLIENT_NAME"
+    echo "User Key: ${USER_KEY:0:10}..."
+    echo ""
+    
     cd "$PROJECT_ROOT"
-    python3 check_license.py 2>&1 | grep -E "\[mTLS\]|✓|⚠|❌" || true
+    
+    # Создаем сертификаты напрямую через Python с нужным client_name
+    python3 -c "
+import sys
+sys.path.insert(0, '.')
+from check_license import generate_client_certificates
+import os
+
+try:
+    cert_path, key_path = generate_client_certificates(
+        project_id='$PROJECT_ID',
+        client_name='$CLIENT_NAME',
+        user_key='$USER_KEY'
+    )
+    print(f'[mTLS] ✓ Сертификаты успешно созданы!')
+    print(f'[mTLS]   Cert: {cert_path}')
+    print(f'[mTLS]   Key: {key_path}')
+except Exception as e:
+    print(f'[mTLS] ❌ Ошибка при создании сертификатов: {e}')
+    sys.exit(1)
+" 2>&1
     
     if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
         echo ""
+        echo "============================================================"
         echo "✓ Сертификаты успешно созданы!"
+        echo "============================================================"
+        echo "Cert: $CERT_FILE"
+        echo "Key: $KEY_FILE"
+        echo ""
+        echo "Содержимое сертификата:"
+        openssl x509 -in "$CERT_FILE" -text -noout | grep -A 2 "Subject:"
+        openssl x509 -in "$CERT_FILE" -fingerprint -sha256 -noout
+        echo ""
         exit 0
+    else
+        echo ""
+        echo "⚠ Не удалось создать сертификаты через API."
+        echo "   Попробуйте создать вручную (см. инструкции ниже)."
+        echo ""
     fi
 fi
 
