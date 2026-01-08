@@ -582,13 +582,13 @@ def sign_project_csr_public(project_id):
         if key.status != 1:
             return jsonify({"error": "Key is not active"}), 403
 
-        # Автоматически создаем CA для проекта, если его нет
+        # Проверяем, что общий CA существует (упрощенная конфигурация - один CA для всех)
         try:
-            _mtls_manager.ensure_project_ca(project.unique_id, project.name)
-            logging.info(f"Ensured CA exists for project {project.unique_id}")
+            _mtls_manager.get_ca_cert(project.unique_id)
+            logging.info(f"Verified single CA exists for project {project.unique_id}")
         except Exception as e:
-            logging.error(f"Error ensuring CA for project {project.unique_id}: {e}")
-            # Продолжаем - возможно CA уже существует
+            logging.error(f"CA certificate not found: {e}. Please create it using scripts/create_single_ca.sh")
+            return jsonify({"error": "CA certificate not configured. Please contact administrator."}), 500
 
         # Подписываем CSR
         try:

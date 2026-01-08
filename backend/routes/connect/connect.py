@@ -72,10 +72,10 @@ def get_challenge():
                     pass
             if project and project.unique_id:
                 mtls_manager = MTLSProjectManager()
-                mtls_manager.ensure_project_ca(project.unique_id, project.name)
-                logger.debug(f"Ensured mTLS CA exists for project {client_project_id}")
+                mtls_manager.get_ca_cert(project.unique_id)  # Verify single CA exists
+                logger.debug(f"Verified single mTLS CA exists for project {client_project_id}")
         except Exception as e:
-            logger.debug(f"Could not ensure mTLS CA for project {client_project_id}: {e}")
+            logger.debug(f"Could not verify mTLS CA for project {client_project_id}: {e}")
         
         valid, msg, cn = verify_project_certificate_from_request(client_project_id)
         if not valid:
@@ -233,10 +233,10 @@ def api_connect():
                     pass
             if project and project.unique_id:
                 mtls_manager = MTLSProjectManager()
-                mtls_manager.ensure_project_ca(project.unique_id, project.name)
-                logger.debug(f"Ensured mTLS CA exists for project {project_id}")
+                mtls_manager.get_ca_cert(project.unique_id)  # Verify single CA exists
+                logger.debug(f"Verified single mTLS CA exists for project {project_id}")
         except Exception as e:
-            logger.debug(f"Could not ensure mTLS CA for project {project_id}: {e}")
+            logger.debug(f"Could not verify mTLS CA for project {project_id}: {e}")
 
         valid, msg, cn = verify_project_certificate_from_request(project_id)
         if not valid:
@@ -327,10 +327,10 @@ def classic_connect():
                     pass
             if project and project.unique_id:
                 mtls_manager = MTLSProjectManager()
-                mtls_manager.ensure_project_ca(project.unique_id, project.name)
-                logger.debug(f"Ensured mTLS CA exists for project {project_id}")
+                mtls_manager.get_ca_cert(project.unique_id)  # Verify single CA exists
+                logger.debug(f"Verified single mTLS CA exists for project {project_id}")
         except Exception as e:
-            logger.debug(f"Could not ensure mTLS CA for project {project_id}: {e}")
+            logger.debug(f"Could not verify mTLS CA for project {project_id}: {e}")
         
         valid, msg, cn = verify_project_certificate_from_request(project_id)
         if not valid:

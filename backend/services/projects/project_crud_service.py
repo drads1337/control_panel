@@ -176,10 +176,10 @@ class ProjectCRUDService:
             try:
                 from ...utils.mtls_manager import MTLSProjectManager
                 mtls_manager = MTLSProjectManager()
-                mtls_manager.ensure_project_ca(project.unique_id, project.name)
-                self.logger.info(f"Created mTLS CA certificate for project {project.id} (unique_id: {project.unique_id})")
+                mtls_manager.get_ca_cert(project.unique_id)  # Verify single CA exists
+                self.logger.info(f"Verified single mTLS CA certificate for project {project.id} (unique_id: {project.unique_id})")
             except Exception as e:
-                # Don't fail project creation if CA creation fails - it can be created later
+                # Don't fail project creation if CA verification fails - single CA should be created separately
                 self.logger.warning(f"Failed to create mTLS CA for project {project.id}: {e}. CA will be created on first access.")
             
             return project

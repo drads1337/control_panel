@@ -1,16 +1,14 @@
 """
-Utilities for per-project mTLS certificate management.
+Utilities for mTLS certificate management using a single CA for all clients.
 
 Responsibilities:
-- Create project-scoped CA (keeps private key server-side).
+- Use single CA certificate for all clients (simplified configuration).
 - Sign client CSRs (private keys stay with client).
-- Maintain aggregate CA bundle for Nginx mTLS verification.
-- Verify presented client cert against project CA and CN prefix.
+- Verify presented client cert against single CA and CN prefix.
 """
 
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -30,67 +28,30 @@ class MTLSProjectManager:
             "MTLS_PROJECT_SSL_DIR", PROJECT_ROOT / "nginx" / "ssl" / "projects"
         )
         self.base_dir = Path(base_dir)
-        self.bundle_path = Path(
-            os.environ.get(
-                "MTLS_CA_BUNDLE_PATH", PROJECT_ROOT / "nginx" / "ssl" / "ca-bundle.pem"
-            )
+        # Single CA certificate for all clients (simplified configuration)
+        default_ca_path = os.environ.get(
+            "MTLS_CA_CERT_PATH", PROJECT_ROOT / "nginx" / "ssl" / "ca-cert.pem"
         )
+        self.ca_cert_path = Path(default_ca_path)
+        self.ca_key_path = self.ca_cert_path.parent / "ca-key.pem"
         self.openssl_bin = os.environ.get("OPENSSL_BIN", "openssl")
 
     # ---------- public API ----------
-    def ensure_project_ca(
-        self, project_id: str, project_name: str | None = None
-    ) -> tuple[str, str]:
+    def get_ca_cert(self, project_id: str) -> tuple[str, str]:
         """
-        Ensure CA key/cert exist for a project.
-
+        Get single CA certificate for all clients (simplified configuration).
+        
         Returns:
             (ca_cert_pem, fingerprint_sha256)
         """
-        project_dir = self._project_dir(project_id)
-        ca_dir = project_dir / "ca"
-        ca_dir.mkdir(parents=True, exist_ok=True)
-        ca_key = ca_dir / "ca-key.pem"
-        ca_cert = ca_dir / "ca-cert.pem"
-
-        if not ca_key.exists():
-            self._run(
-                [self.openssl_bin, "genrsa", "-out", str(ca_key), "4096"],
-                "generate project CA key",
+        if not self.ca_cert_path.exists():
+            raise RuntimeError(
+                f"CA certificate not found at {self.ca_cert_path}. "
+                "Please create it using scripts/create_single_ca.sh"
             )
-            os.chmod(ca_key, 0o600)
-
-        if not ca_cert.exists():
-            subj = f"/C=US/ST=CA/O=Panel/OU=Project/CN=Project-{project_id} CA"
-            if project_name:
-                subj = f"/C=US/ST=CA/O=Panel/OU={self._sanitize_cn(project_name)}/CN=Project-{project_id} CA"
-            self._run(
-                [
-                    self.openssl_bin,
-                    "req",
-                    "-new",
-                    "-x509",
-                    "-days",
-                    "3650",
-                    "-key",
-                    str(ca_key),
-                    "-out",
-                    str(ca_cert),
-                    "-subj",
-                    subj,
-                    "-extensions",
-                    "v3_ca",
-                ],
-                "generate project CA cert",
-            )
-
-        self._refresh_ca_bundle()
-        cert_pem = ca_cert.read_text()
+        
+        cert_pem = self.ca_cert_path.read_text()
         return cert_pem, self._fingerprint(cert_pem)
-
-    def get_ca_cert(self, project_id: str) -> tuple[str, str]:
-        """Get CA cert (generate if missing) and fingerprint."""
-        return self.ensure_project_ca(project_id)
 
     def sign_csr(
         self,
@@ -100,12 +61,25 @@ class MTLSProjectManager:
         days_valid: int = 365,
     ) -> tuple[str, str, str]:
         """
-        Sign a client CSR with the project's CA.
+        Sign a client CSR with the single CA certificate (simplified configuration).
 
         Returns:
             (client_cert_pem, ca_cert_pem, fingerprint_sha256)
         """
-        ca_cert_pem, _ = self.ensure_project_ca(project_id)
+        # Use single CA for all clients
+        if not self.ca_cert_path.exists():
+            raise RuntimeError(
+                f"CA certificate not found at {self.ca_cert_path}. "
+                "Please create it using scripts/create_single_ca.sh"
+            )
+        
+        if not self.ca_key_path.exists():
+            raise RuntimeError(
+                f"CA private key not found at {self.ca_key_path}. "
+                "Please create it using scripts/create_single_ca.sh"
+            )
+        
+        ca_cert_pem, _ = self.get_ca_cert(project_id)
         project_dir = self._project_dir(project_id)
         clients_dir = project_dir / "clients"
         clients_dir.mkdir(parents=True, exist_ok=True)
@@ -113,10 +87,6 @@ class MTLSProjectManager:
         safe_client = self._sanitize_name(client_name or "client")
         client_dir = clients_dir / safe_client
         client_dir.mkdir(parents=True, exist_ok=True)
-
-        ca_dir = project_dir / "ca"
-        ca_key = ca_dir / "ca-key.pem"
-        ca_cert = ca_dir / "ca-cert.pem"
 
         normalized_csr = self._normalize_pem(csr_pem)
 
@@ -145,6 +115,7 @@ class MTLSProjectManager:
             extfile_path = extfile.name
 
         try:
+            # Use single CA certificate and key
             self._run(
                 [
                     self.openssl_bin,
@@ -155,9 +126,9 @@ class MTLSProjectManager:
                     "-in",
                     csr_file_path,
                     "-CA",
-                    str(ca_cert),
+                    str(self.ca_cert_path),
                     "-CAkey",
-                    str(ca_key),
+                    str(self.ca_key_path),
                     "-CAcreateserial",
                     "-out",
                     cert_file_path,
@@ -204,20 +175,19 @@ class MTLSProjectManager:
     ) -> tuple[bool, str, Optional[str]]:
         """
         Verify presented client certificate:
-        - Signed by project CA
+        - Signed by single CA certificate (simplified configuration)
         - CN starts with project-{project_id}
 
         Returns:
             (is_valid, message, cn)
         """
-        project_dir = self._project_dir(project_id)
-        ca_cert_path = project_dir / "ca" / "ca-cert.pem"
-        if not ca_cert_path.exists():
-            return False, "Project CA not initialized", None
+        # Use single CA for all clients
+        if not self.ca_cert_path.exists():
+            return False, "CA certificate not found. Please create it using scripts/create_single_ca.sh", None
 
         try:
             ca_cert = x509.load_pem_x509_certificate(
-                ca_cert_path.read_bytes(), default_backend()
+                self.ca_cert_path.read_bytes(), default_backend()
             )
             client_cert = x509.load_pem_x509_certificate(
                 self._normalize_pem(client_cert_pem).encode(), default_backend()
@@ -233,7 +203,7 @@ class MTLSProjectManager:
                 client_cert.signature_hash_algorithm,
             )
         except Exception as exc:  # signature invalid
-            return False, f"Certificate not signed by project CA: {exc}", None
+            return False, f"Certificate not signed by CA: {exc}", None
 
         cn = self._extract_cn(client_cert)
         prefix = f"project-{project_id}"
@@ -257,20 +227,7 @@ class MTLSProjectManager:
                 f"Failed to {what}: {result.stderr or result.stdout}"
             )
 
-    def _refresh_ca_bundle(self) -> None:
-        """Concatenate all project CA certs into a single bundle for Nginx."""
-        self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.bundle_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = self.bundle_path.with_suffix(".tmp")
-        with tmp_path.open("w") as tmp:
-            for ca_cert in sorted(self.base_dir.glob("*/ca/ca-cert.pem")):
-                try:
-                    tmp.write(ca_cert.read_text())
-                    tmp.write("\n")
-                except Exception:
-                    continue
-        shutil.move(tmp_path, self.bundle_path)
-        os.chmod(self.bundle_path, 0o644)
+    # CA bundle refresh no longer needed - using single CA certificate
 
     def _fingerprint(self, pem: str) -> str:
         cert = x509.load_pem_x509_certificate(

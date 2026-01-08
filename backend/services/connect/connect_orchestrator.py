@@ -151,10 +151,10 @@ class ConnectOrchestrator:
                 project = Project.query.get(project_id)
                 if project and project.unique_id:
                     mtls_manager = MTLSProjectManager()
-                    mtls_manager.ensure_project_ca(project.unique_id, project.name)
-                    logger.debug(f"Ensured mTLS CA exists for project {project_id} (unique_id: {project.unique_id})")
+                    mtls_manager.get_ca_cert(project.unique_id)  # Verify single CA exists
+                    logger.debug(f"Verified single mTLS CA exists for project {project_id} (unique_id: {project.unique_id})")
             except Exception as e:
-                # Don't fail connection if CA creation fails - it's not critical
+                # Don't fail connection if CA verification fails - it's not critical
                 logger.debug(f"Could not ensure mTLS CA for project {project_id}: {e}")
 
             ip_validation_result = request_validation_pipeline.validate_ip_only(
