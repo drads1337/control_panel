@@ -90,13 +90,9 @@ class MTLSProjectManager:
 
         normalized_csr = self._normalize_pem(csr_pem)
 
-        # Enforce CN prefix in CSR
-        csr_cn = self._extract_cn_from_csr(normalized_csr)
-        expected_prefix = f"project-{project_id}".lower()
-        if csr_cn and not csr_cn.lower().startswith(expected_prefix):
-            raise ValueError(
-                f"CSR CN must start with '{expected_prefix}' (got '{csr_cn}')"
-            )
+        # NOTE: With single CA, CN can be any value - no project_id prefix required
+        # CN is only used for identification, not validation
+        # Project validation is done via request data (project_id field) or other methods
 
         # Use temporary files for CSR, certificate, and extfile to avoid permission issues
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csr", delete=False) as csr_file:
@@ -176,7 +172,11 @@ class MTLSProjectManager:
         """
         Verify presented client certificate:
         - Signed by single CA certificate (simplified configuration)
-        - CN starts with project-{project_id}
+        - CN can be any value (universal certificates - no project_id prefix required)
+
+        NOTE: With single CA, certificates are universal and work for all projects.
+        Project validation is done via request data (project_id field) or other methods,
+        not via certificate CN.
 
         Returns:
             (is_valid, message, cn)
@@ -205,14 +205,12 @@ class MTLSProjectManager:
         except Exception as exc:  # signature invalid
             return False, f"Certificate not signed by CA: {exc}", None
 
+        # Extract CN for reference (no validation required)
         cn = self._extract_cn(client_cert)
-        prefix = f"project-{project_id}"
-        if not cn or not cn.lower().startswith(prefix.lower()):
-            return (
-                False,
-                f"Certificate CN must start with {prefix}",
-                cn,
-            )
+        
+        # NOTE: With universal certificates, CN can be any value
+        # No project_id prefix validation required
+        # Project validation is done via request data, not certificate CN
 
         return True, "ok", cn
 

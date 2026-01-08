@@ -25,15 +25,17 @@ csrf = CSRFProtect()
 logger = logging.getLogger(__name__)
 
 def _extract_project_id_from_cn(cn: str | None) -> str | None:
-    if not cn:
-        return None
-    # Expected format: project-<project_id>-<client_name>
-    parts = cn.split("-")
-    if len(parts) < 2:
-        return None
-    if parts[0].lower() != "project":
-        return None
-    return parts[1]
+    """
+    DEPRECATED: With universal certificates (single CA), project_id is no longer in CN.
+    CN can be any value (e.g., "android", "mobile", "client-1") and is universal for all projects.
+    Project ID should be provided via request data (body/params), not certificate CN.
+    
+    This function is kept for backward compatibility but will always return None with universal certificates.
+    """
+    # NOTE: Universal certificates don't have project_id in CN
+    # CN format is just <client_name> (e.g., "android", "mobile")
+    # Project ID must be provided via request data, not certificate CN
+    return None
 
 @connect_bp.route("/challenge", methods=["POST"])
 @require_mtls

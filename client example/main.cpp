@@ -73,37 +73,67 @@ constexpr const char* MASTER_KEY_HEX = "ca3695f66cc428a41e6bc8c2ed7ee27b0940fe4d
 constexpr const char* SERVER_CERT_FINGERPRINT = "00219C5A91059B130B4E8954BBB03B3BC1CB5636327E6BD7CB3CDB29F7D149C5";
 constexpr bool SSL_PINNING_ENABLED = true;  // SSL pinning enabled
 
-// Project CA Certificate Pinning
+// Single CA Certificate Pinning (simplified configuration)
 // ============================================================================
-// SECURITY: Per-project CA fingerprint pinning provides additional protection
+// SECURITY: Single CA fingerprint pinning provides additional protection
 // against MITM attacks even if the server certificate changes.
 //
-// The CA fingerprint is obtained from the server via:
-//   GET /api/projects/<project_id>/mtls/ca-cert
+// NOTE: Single CA is now used for all clients (simplified configuration).
+// The CA fingerprint is the same for all projects.
+//
+// The CA fingerprint can be obtained from the server via:
+//   GET /api/projects/<project_id>/mtls/ca-cert (requires JWT authentication)
+//
+// Or you can hardcode it here after obtaining from server admin:
+//   constexpr const char* HARDCODED_CA_FINGERPRINT = "DAE31C0D190F9C6D77..."; // SHA-256 without colons
 //
 // This fingerprint is cached locally and verified against the CA certificate
 // in the server's certificate chain during SSL handshake.
 // ============================================================================
-// Global variable to store project CA fingerprint (fetched from server)
+// Global variable to store single CA fingerprint (fetched from server or hardcoded)
 static std::string g_ProjectCaFingerprint = "";
-constexpr bool PROJECT_CA_PINNING_ENABLED = true;  // Project CA pinning enabled
+// TODO: Optionally hardcode CA fingerprint here for offline pinning:
+// static std::string g_ProjectCaFingerprint = "DAE31C0D190F9C6D77..."; // SHA-256, uppercase, no colons
+constexpr bool PROJECT_CA_PINNING_ENABLED = false;  // Disabled by default (requires authentication to fetch)
 
-// mTLS Configuration
+// mTLS Configuration - Universal certificates with single CA (simplified)
 // ============================================================================
 // SETUP INSTRUCTIONS:
-// 1. Generate client certificates on server:
-//    cd /var/www/panel
-//    ./scripts/generate_mtls_certs.sh your-client-name
+// 
+// IMPORTANT: Universal certificates - single CA for ALL clients.
+// - CN can be ANY value: "android", "mobile", "my-app", "client-1", etc.
+// - NO project_id prefix required in CN
+// - All certificates work for all projects (universal)
+// - Project ID is checked via request data, not certificate CN
+// 
+// 1. Get client certificates (choose one method):
+//    
+//    A. Automatically on server (RECOMMENDED):
+//       cd /var/www/panel
+//       python3 check_license.py
+//       # Creates universal certificate with CN = client_name (no project_id)
+//    
+//    B. Via API (for automatic client setup):
+//       - Client generates CSR with CN: <any_client_name> (no project_id prefix)
+//       - POST /api/projects/<project_id>/mtls/csr-sign-public
+//       - Server signs with single CA and returns universal certificate
+//       # NOTE: project_id in URL is for file organization, CN can be any value
+//    
+//    C. Manually on server:
+//       ./scripts/get_client_certs_for_android.sh <project_id> <any_client_name> <user_key>
+//       # CN = <client_name> (universal, works for all projects)
 //
 // 2. Copy certificates to Android app:
-//    - Copy nginx/ssl/clients/your-client-name/client-cert.pem
-//    - Copy nginx/ssl/clients/your-client-name/client-key.pem
-//    - Place them in your Android app's assets folder or internal storage
+//    - Copy client-cert.pem to app's internal storage
+//    - Copy client-key.pem to app's internal storage
+//    - IMPORTANT: Keep private key secure! Use Android Keystore in production.
 //
-// 3. Update paths below to match your app's package name and file locations
+// 3. Update paths below to match your app's package name:
+//    Replace "com.yourpackage.app" with your actual Android package name
 // ============================================================================
 // Paths to client certificate and key files
 // Option 1: Use app's internal storage (recommended)
+// TODO: Replace "com.yourpackage.app" with your actual Android package name
 constexpr const char* CLIENT_CERT_PATH = "/data/data/com.yourpackage.app/files/client-cert.pem";
 constexpr const char* CLIENT_KEY_PATH = "/data/data/com.yourpackage.app/files/client-key.pem";
 
@@ -111,6 +141,10 @@ constexpr const char* CLIENT_KEY_PATH = "/data/data/com.yourpackage.app/files/cl
 // You'll need to implement asset loading and save to internal storage first
 // constexpr const char* CLIENT_CERT_ASSET = "client-cert.pem";
 // constexpr const char* CLIENT_KEY_ASSET = "client-key.pem";
+
+// Note: Single CA is now used for all clients (simplified configuration)
+// CA fingerprint can be obtained from: GET /api/projects/<project_id>/mtls/ca-cert
+// But this requires authentication, so CA pinning is optional
 
 // Global state
 std::string g_gameName = "PUBG";
@@ -661,6 +695,7 @@ private:
                 LOGI("ApiClient: mTLS enabled with client certificate from %s", CLIENT_CERT_PATH);
             } catch (const std::exception& e) {
                 LOGE("ApiClient: Failed to configure mTLS: %s", e.what());
+                LOGE("ApiClient: Make sure client-cert.pem and client-key.pem exist and are readable");
                 // Fallback to SSL without client certificate
                 session.SetSslOptions(cpr::Ssl(
                     cpr::ssl::TLSv1_2{},
@@ -675,8 +710,9 @@ private:
                 cpr::ssl::VerifyHost{true},      // Verify hostname
                 cpr::ssl::VerifyPeer{true}        // Verify server certificate
             ));
-            LOGI("ApiClient: SSL without mTLS (client certificates not found at %s or %s)", 
-                 CLIENT_CERT_PATH, CLIENT_KEY_PATH);
+            LOGI("ApiClient: SSL without mTLS (client certificates not found)");
+            LOGI("ApiClient: Expected paths: %s or %s", CLIENT_CERT_PATH, CLIENT_KEY_PATH);
+            LOGI("ApiClient: Note: mTLS is required for /api/challenge and /api/connect endpoints");
         }
         
         // SSL Pinning configuration
@@ -708,7 +744,7 @@ private:
         } else if (PROJECT_CA_PINNING_ENABLED && !g_ProjectId.empty()) {
             // Try to fetch CA fingerprint if not already loaded
             LOGI("ApiClient: Project CA fingerprint not loaded, attempting to fetch...");
-            getProjectCaFingerprint(g_ProjectId);
+            ApiClient::getProjectCaFingerprint(g_ProjectId);
         }
         
         return session;
@@ -769,11 +805,16 @@ private:
     }
 
     /**
-     * Get project CA certificate fingerprint from server
-     * This is called once per project to get the CA fingerprint for SSL pinning
+     * Get single CA certificate fingerprint from server (simplified configuration)
+     * 
+     * NOTE: This endpoint requires JWT authentication, so it may not work until
+     * client is authenticated. CA pinning is optional and provides additional security.
      * 
      * SECURITY: This fingerprint is used to verify the CA certificate in the
      * server's certificate chain, providing protection against MITM attacks.
+     * 
+     * Since we now use a single CA for all clients, the fingerprint is the same
+     * for all projects. You can hardcode it if needed (obtain from server admin).
      */
     static bool getProjectCaFingerprint(const std::string& projectId) {
         if (projectId.empty()) {
@@ -781,18 +822,40 @@ private:
             return false;
         }
         
-        LOGI("GetProjectCaFingerprint: Fetching CA fingerprint for project %s", projectId.c_str());
+        LOGI("GetProjectCaFingerprint: Fetching single CA fingerprint for project %s", projectId.c_str());
         
-        // Create a session without mTLS for initial CA fingerprint fetch
-        // (This endpoint may not require mTLS, or we can use a separate session)
+        // Create a session - this endpoint requires JWT, so it may fail
+        // Use mTLS if certificates are available, otherwise try without
+        bool useMtls = fileExists(CLIENT_CERT_PATH) && fileExists(CLIENT_KEY_PATH);
         cpr::Session session;
         session.SetHeader({{"Content-Type", "application/json"}});
         session.SetTimeout(cpr::Timeout{10000});
-        session.SetSslOptions(cpr::Ssl(
-            cpr::ssl::TLSv1_2{},
-            cpr::ssl::VerifyHost{true},
-            cpr::ssl::VerifyPeer{true}
-        ));
+        
+        if (useMtls) {
+            try {
+                session.SetSslOptions(cpr::Ssl(
+                    cpr::ssl::TLSv1_2{},
+                    cpr::ssl::VerifyHost{true},
+                    cpr::ssl::VerifyPeer{true},
+                    cpr::ssl::CertFile{CLIENT_CERT_PATH},
+                    cpr::ssl::KeyFile{CLIENT_KEY_PATH}
+                ));
+                LOGI("GetProjectCaFingerprint: Using mTLS");
+            } catch (const std::exception& e) {
+                LOGE("GetProjectCaFingerprint: Failed to configure mTLS: %s", e.what());
+                session.SetSslOptions(cpr::Ssl(
+                    cpr::ssl::TLSv1_2{},
+                    cpr::ssl::VerifyHost{true},
+                    cpr::ssl::VerifyPeer{true}
+                ));
+            }
+        } else {
+            session.SetSslOptions(cpr::Ssl(
+                cpr::ssl::TLSv1_2{},
+                cpr::ssl::VerifyHost{true},
+                cpr::ssl::VerifyPeer{true}
+            ));
+        }
         
         std::string url = std::string(SERVER_URL) + "/api/projects/" + projectId + "/mtls/ca-cert";
         session.SetUrl(url);
@@ -816,7 +879,7 @@ private:
                     std::transform(g_ProjectCaFingerprint.begin(), g_ProjectCaFingerprint.end(),
                                  g_ProjectCaFingerprint.begin(), ::toupper);
                     
-                    LOGI("GetProjectCaFingerprint: SUCCESS - CA fingerprint: %s", g_ProjectCaFingerprint.c_str());
+                    LOGI("GetProjectCaFingerprint: SUCCESS - Single CA fingerprint: %s", g_ProjectCaFingerprint.c_str());
                     return true;
                 } else {
                     LOGE("GetProjectCaFingerprint: Response missing fingerprint field");
@@ -826,6 +889,11 @@ private:
                 LOGE("GetProjectCaFingerprint: JSON parsing error: %s", e.what());
                 return false;
             }
+        } else if (response.status_code == 401 || response.status_code == 403) {
+            LOGI("GetProjectCaFingerprint: Endpoint requires authentication (status %d). CA pinning will be skipped.", response.status_code);
+            // This is expected - the endpoint requires JWT authentication
+            // CA pinning is optional, so we continue without it
+            return false;
         } else {
             LOGE("GetProjectCaFingerprint: Server error: %d", response.status_code);
             // Don't fail completely - allow connection without CA pinning if fetch fails
@@ -872,13 +940,13 @@ public:
                         
                         // Fetch CA fingerprint for the new project
                         if (PROJECT_CA_PINNING_ENABLED) {
-                            getProjectCaFingerprint(g_ProjectId);
+                            ApiClient::getProjectCaFingerprint(g_ProjectId);
                         }
                     }
                 } else {
                     // If project_id not in response, try to fetch CA fingerprint with current project_id
                     if (PROJECT_CA_PINNING_ENABLED && !g_ProjectId.empty() && g_ProjectCaFingerprint.empty()) {
-                        getProjectCaFingerprint(g_ProjectId);
+                        ApiClient::getProjectCaFingerprint(g_ProjectId);
                     }
                 }
 
@@ -1066,7 +1134,7 @@ public:
         // Initialize CA fingerprint if project_id is known and CA pinning is enabled
         if (PROJECT_CA_PINNING_ENABLED && !g_ProjectId.empty() && g_ProjectCaFingerprint.empty()) {
             LOGI("CheckLicense: Initializing CA fingerprint for project %s", g_ProjectId.c_str());
-            getProjectCaFingerprint(g_ProjectId);
+            ApiClient::getProjectCaFingerprint(g_ProjectId);
         }
 
         std::string androidId = getAndroidId(env, context);

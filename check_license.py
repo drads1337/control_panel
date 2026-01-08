@@ -202,8 +202,10 @@ def _get_cert_via_api(project_id: str, client_name: str, user_key: str, key_path
         print(f"[mTLS] ✓ Приватный ключ создан через cryptography")
     
     # Генерируем CSR
+    # NOTE: With single CA, CN can be any value - no project_id prefix required
+    # Universal certificates work for all projects
     csr_path = client_dir / "client.csr"
-    cn = f"project-{project_id}-{client_name}"
+    cn = client_name  # Universal CN - no project_id prefix required
     try:
         subprocess.run(
             [
