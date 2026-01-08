@@ -26,8 +26,11 @@ fi
 # Generate CA private key
 echo "Generating CA private key..."
 openssl genrsa -out "$CA_KEY" 4096
-chmod 600 "$CA_KEY"
+# Устанавливаем права 644 для доступа из API контейнера (appuser UID 1000)
+# В production можно использовать более строгие права, но для Docker контейнера нужен доступ
+chmod 644 "$CA_KEY"
 echo "✓ CA private key created: $CA_KEY"
+echo "  Права доступа: 644 (читаемый для API контейнера)"
 
 # Generate CA certificate (valid for 10 years)
 echo "Generating CA certificate..."
