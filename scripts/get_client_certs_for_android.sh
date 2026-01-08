@@ -32,28 +32,41 @@ echo "NOTE: Сертификаты универсальные - CN может б
 echo "      Все сертификаты подписываются единым CA и работают для всех проектов"
 echo ""
 
-# Проверяем, существуют ли сертификаты
+# Проверяем, существуют ли сертификаты и правильный ли у них CN
 if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
-    echo "✓ Сертификаты уже существуют:"
-    echo "  Cert: $CERT_FILE"
-    echo "  Key: $KEY_FILE"
-    echo ""
-    echo "Содержимое сертификата:"
-    openssl x509 -in "$CERT_FILE" -text -noout | grep -A 2 "Subject:"
-    openssl x509 -in "$CERT_FILE" -fingerprint -sha256 -noout
-    echo ""
-    echo "============================================================"
-    echo "✓ Сертификаты готовы для использования"
-    echo "============================================================"
-    echo ""
-    echo "Инструкция по установке в Android:"
-    echo "1. Скопируйте файлы client-cert.pem и client-key.pem в ваше Android приложение"
-    echo "2. Разместите их в папке assets или скопируйте во внутреннее хранилище приложения"
-    echo "3. Обновите пути в main.cpp:"
-    echo "   CLIENT_CERT_PATH = \"/data/data/YOUR.PACKAGE.NAME/files/client-cert.pem\""
-    echo "   CLIENT_KEY_PATH = \"/data/data/YOUR.PACKAGE.NAME/files/client-key.pem\""
-    echo ""
-    exit 0
+    # Проверяем CN в сертификате
+    CERT_CN=$(openssl x509 -in "$CERT_FILE" -text -noout | grep "Subject:" | grep -o "CN = [^,]*" | cut -d'=' -f2 | tr -d ' ')
+    
+    # Если CN содержит project- prefix (старый формат), удаляем и создаем заново
+    if echo "$CERT_CN" | grep -q "^project-"; then
+        echo "⚠ Найден старый сертификат с CN='$CERT_CN' (старый формат с project_id)"
+        echo "  Удаляем старый сертификат и создаем новый с универсальным CN='$CLIENT_NAME'..."
+        rm -f "$CERT_FILE" "$KEY_FILE"
+        echo "✓ Старый сертификат удален"
+        echo ""
+    else
+        # Сертификат с правильным форматом
+        echo "✓ Сертификаты уже существуют (CN='$CERT_CN'):"
+        echo "  Cert: $CERT_FILE"
+        echo "  Key: $KEY_FILE"
+        echo ""
+        echo "Содержимое сертификата:"
+        openssl x509 -in "$CERT_FILE" -text -noout | grep -A 2 "Subject:"
+        openssl x509 -in "$CERT_FILE" -fingerprint -sha256 -noout
+        echo ""
+        echo "============================================================"
+        echo "✓ Сертификаты готовы для использования"
+        echo "============================================================"
+        echo ""
+        echo "Инструкция по установке в Android:"
+        echo "1. Скопируйте файлы client-cert.pem и client-key.pem в ваше Android приложение"
+        echo "2. Разместите их в папке assets или скопируйте во внутреннее хранилище приложения"
+        echo "3. Обновите пути в main.cpp:"
+        echo "   CLIENT_CERT_PATH = \"/data/data/YOUR.PACKAGE.NAME/files/client-cert.pem\""
+        echo "   CLIENT_KEY_PATH = \"/data/data/YOUR.PACKAGE.NAME/files/client-key.pem\""
+        echo ""
+        exit 0
+    fi
 fi
 
 # Если сертификатов нет и есть user_key, создаем через API
