@@ -111,14 +111,57 @@ echo "API:"
 docker compose logs --tail=20 api 2>/dev/null || echo "API не запущен"
 
 echo ""
+echo "=== ШАГ 7: Проверка доступности ==="
+DOMAIN="ovrin.xyz"
+echo "Проверка доступности на домене $DOMAIN..."
+
+# Проверка HTTP
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://$DOMAIN/health 2>/dev/null || echo "000")
+if [ "$HTTP_STATUS" = "200" ]; then
+    echo "✓ HTTP доступен (порт 80)"
+else
+    echo "⚠ HTTP недоступен (код: $HTTP_STATUS)"
+    echo "  Проверьте, что порт 80 открыт и домен указывает на IP сервера"
+fi
+
+# Проверка HTTPS (с игнорированием ошибок сертификата)
+HTTPS_STATUS=$(curl -k -s -o /dev/null -w "%{http_code}" --max-time 5 https://$DOMAIN/health 2>/dev/null || echo "000")
+if [ "$HTTPS_STATUS" = "200" ]; then
+    echo "✓ HTTPS доступен (порт 443)"
+    if [ ! -f "letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+        echo "  ⚠ Используется self-signed сертификат (браузер покажет предупреждение)"
+        echo "  Для получения Let's Encrypt сертификата запустите:"
+        echo "    ./scripts/get_letsencrypt_with_fallback.sh"
+    else
+        echo "  ✓ Let's Encrypt сертификат активен"
+    fi
+else
+    echo "⚠ HTTPS недоступен (код: $HTTPS_STATUS)"
+    echo "  Проверьте, что порт 443 открыт"
+fi
+
+echo ""
 echo "=========================================="
 echo "  ГОТОВО"
 echo "=========================================="
 echo ""
-echo "Проверьте статус:"
-echo "  docker compose ps"
-echo "  docker compose logs -f"
+echo "📋 Следующие шаги:"
 echo ""
-echo "Проверьте доступность:"
-echo "  curl -k https://localhost/health"
+echo "1. Проверьте статус контейнеров:"
+echo "   docker compose ps"
+echo ""
+echo "2. Проверьте логи:"
+echo "   docker compose logs -f"
+echo ""
+echo "3. Для получения Let's Encrypt сертификата (чтобы убрать предупреждение браузера):"
+echo "   ./scripts/get_letsencrypt_with_fallback.sh"
+echo ""
+echo "4. Проверьте доступность:"
+echo "   curl -k https://$DOMAIN/health"
+echo "   curl http://$DOMAIN/health"
+echo ""
+echo "⚠ ВАЖНО:"
+echo "   - Убедитесь, что домен $DOMAIN указывает на IP этого сервера"
+echo "   - Убедитесь, что порты 80 и 443 открыты в firewall"
+echo "   - После получения Let's Encrypt сертификата браузер не будет показывать предупреждение"
 echo ""
