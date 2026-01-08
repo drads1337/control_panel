@@ -18,10 +18,10 @@ from cryptography.hazmat.backends import default_backend
 
 # Конфигурация
 SERVER_URL = "https://ovrin.xyz"  # Измените на ваш URL
-USER_KEY = "PUBG-12M-uUakzkGT5FQY"
+USER_KEY = "PUBG-1M-F4mzCUcPAzl5"
 GAME_NAME = "PUBG"
-MASTER_KEY = "a13b9a550d491f4d88206118a8ea9c12dc19ac1b7d263fa09c57a14e266f916d"
-PROJECT_ID = "2920317791"
+MASTER_KEY = "894a642561a8c0237a748a958aa5b828b6a9a0320364f8a85658b7d8ac3e1f4a"
+PROJECT_ID = "6117759936"
 # Project key для расшифровки ответов (может отличаться от master key)
 PROJECT_KEY = MASTER_KEY  # По умолчанию используем master key
 

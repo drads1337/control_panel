@@ -7,7 +7,7 @@
 # ============================================
 # Сохраняет cookies в файл /tmp/panel_cookies.txt
 
-curl -c /tmp/panel_cookies.txt -X POST "ovrin.xyz/api/auth/login" \
+curl -c /tmp/panel_cookies.txt -X POST "https://ovrin.xyz/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username": "drads123", "password": "drads123"}'
 
@@ -16,7 +16,7 @@ curl -c /tmp/panel_cookies.txt -X POST "ovrin.xyz/api/auth/login" \
 # ============================================
 # Выполните эту команду и скопируйте значение csrf_token из ответа
 
-curl -b /tmp/panel_cookies.txt -X GET "YOUR_SERVER_URL/api/auth/csrf-token" \
+curl -b /tmp/panel_cookies.txt -X GET "https://ovrin.xyz/api/auth/csrf-token" \
   -H "Content-Type: application/json"
 
 # Скопируйте значение csrf_token из ответа (например: "abc123-def456-...")
@@ -27,13 +27,13 @@ curl -b /tmp/panel_cookies.txt -X GET "YOUR_SERVER_URL/api/auth/csrf-token" \
 # ============================================
 # Замените CSRF_TOKEN_HERE на токен из шага 2
 
-curl -b /tmp/panel_cookies.txt -X GET "YOUR_SERVER_URL/api/project-codes/latest" \
+curl -b /tmp/panel_cookies.txt -X GET "https://ovrin.xyz/api/project-codes/latest" \
   -H "Content-Type: application/json" \
   -H "X-CSRFToken: CSRF_TOKEN_HERE"
 
 # Если код не найден (null), создайте новый код командой ниже:
 
-curl -b /tmp/panel_cookies.txt -X POST "YOUR_SERVER_URL/api/project-codes" \
+curl -b /tmp/panel_cookies.txt -X POST "https://ovrin.xyz/api/project-codes" \
   -H "Content-Type: application/json" \
   -H "X-CSRFToken: CSRF_TOKEN_HERE" \
   -d '{"expires_in_days": 30}'
@@ -45,13 +45,14 @@ curl -b /tmp/panel_cookies.txt -X POST "YOUR_SERVER_URL/api/project-codes" \
 # ШАГ 4: Регистрация пользователя с project code
 # ============================================
 # Замените INVITE_CODE_HERE на код из шага 3
+# Полученный invite code: SQFWF5E55I
 
-curl -X POST "YOUR_SERVER_URL/api/auth/register-with-invite" \
+curl -X POST "https://ovrin.xyz/api/auth/register-with-invite" \
   -H "Content-Type: application/json" \
   -d '{
     "username": "bankai123",
-    "password": "bankai",
-    "invite_code": "INVITE_CODE_HERE",
+    "password": "bankai123",
+    "invite_code": "SQFWF5E55I",
     "project_name": "bankain"
   }'
 
