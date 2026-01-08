@@ -274,7 +274,7 @@ def require_mtls(f):
                     extra={
                         "endpoint": request.endpoint,
                         "path": request.path,
-                        "ip": request.remote_addr,
+                        "ip": request.remote_addr,  
                         "error": error_msg
                     }
                 )
