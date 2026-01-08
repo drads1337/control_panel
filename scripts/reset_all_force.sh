@@ -52,8 +52,39 @@ if [ -f "scripts/create_single_ca.sh" ]; then
         cp nginx/ssl/ca-cert.pem nginx/ssl/ca-bundle.pem
         chmod 644 nginx/ssl/ca-bundle.pem
     fi
-    echo "✓ Базовые сертификаты созданы"
+    echo "✓ CA сертификат создан"
 fi
+
+# Создание временного самоподписанного сертификата для nginx
+DOMAIN="ovrin.xyz"
+if [ ! -f "nginx/ssl/cert.pem" ] || [ ! -f "nginx/ssl/key.pem" ]; then
+    echo "Создание временного самоподписанного сертификата для nginx..."
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout nginx/ssl/key.pem \
+        -out nginx/ssl/cert.pem \
+        -subj "/C=RU/ST=State/L=City/O=Organization/CN=$DOMAIN" \
+        -addext "subjectAltName=DNS:$DOMAIN,DNS:www.$DOMAIN" 2>/dev/null || true
+    
+    chmod 600 nginx/ssl/key.pem 2>/dev/null || true
+    chmod 644 nginx/ssl/cert.pem 2>/dev/null || true
+    echo "✓ Временный сертификат для nginx создан"
+fi
+
+# Переключение nginx.conf на временный сертификат (если Let's Encrypt не найден)
+if [ ! -f "letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    echo "Переключение nginx.conf на временный сертификат..."
+    if [ -f "nginx.conf" ]; then
+        sed -i.bak \
+            -e 's|^ssl_certificate /etc/letsencrypt/live/ovrin.xyz/fullchain.pem;|# ssl_certificate /etc/letsencrypt/live/ovrin.xyz/fullchain.pem;|' \
+            -e 's|^ssl_certificate_key /etc/letsencrypt/live/ovrin.xyz/privkey.pem;|# ssl_certificate_key /etc/letsencrypt/live/ovrin.xyz/privkey.pem;|' \
+            -e 's|^# ssl_certificate /etc/nginx/ssl/cert.pem;|ssl_certificate /etc/nginx/ssl/cert.pem;|' \
+            -e 's|^# ssl_certificate_key /etc/nginx/ssl/key.pem;|ssl_certificate_key /etc/nginx/ssl/key.pem;|' \
+            nginx.conf 2>/dev/null || true
+        echo "✓ Nginx переключен на временный сертификат"
+    fi
+fi
+
+echo "✓ Базовые сертификаты созданы"
 echo ""
 
 # 4. Пересоздание контейнеров
