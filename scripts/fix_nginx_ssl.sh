@@ -49,11 +49,12 @@ echo "=== ШАГ 2: Переключение nginx на временный се�
 cp nginx.conf "nginx.conf.backup.$(date +%Y%m%d_%H%M%S)"
 
 # Переключение на самоподписанный сертификат
+# Используем более надежный подход - заменяем строки независимо от их текущего состояния
 sed -i.bak \
-    -e 's|^ssl_certificate /etc/letsencrypt/live/ovrin.xyz/fullchain.pem;|# ssl_certificate /etc/letsencrypt/live/ovrin.xyz/fullchain.pem;|' \
-    -e 's|^ssl_certificate_key /etc/letsencrypt/live/ovrin.xyz/privkey.pem;|# ssl_certificate_key /etc/letsencrypt/live/ovrin.xyz/privkey.pem;|' \
-    -e 's|^# ssl_certificate /etc/nginx/ssl/cert.pem;|ssl_certificate /etc/nginx/ssl/cert.pem;|' \
-    -e 's|^# ssl_certificate_key /etc/nginx/ssl/key.pem;|ssl_certificate_key /etc/nginx/ssl/key.pem;|' \
+    -e '/^[[:space:]]*ssl_certificate[[:space:]]\+\/etc\/letsencrypt\/live\/ovrin\.xyz\/fullchain\.pem;/s/^/# /' \
+    -e '/^[[:space:]]*ssl_certificate_key[[:space:]]\+\/etc\/letsencrypt\/live\/ovrin\.xyz\/privkey\.pem;/s/^/# /' \
+    -e '/^[[:space:]]*# ssl_certificate[[:space:]]\+\/etc\/nginx\/ssl\/cert\.pem;/s/^# //' \
+    -e '/^[[:space:]]*# ssl_certificate_key[[:space:]]\+\/etc\/nginx\/ssl\/key\.pem;/s/^# //' \
     nginx.conf
 
 echo "✓ Nginx переключен на временный сертификат"
@@ -83,7 +84,9 @@ echo ""
 echo "=== ШАГ 4: Получение Let's Encrypt сертификата ==="
 read -p "Получить Let's Encrypt сертификат сейчас? (yes/no): " get_letsencrypt
 
-if [ "$get_letsencrypt" = "yes" ]; then
+# Нормализация ответа (принимаем y, yes, Y, YES)
+get_letsencrypt=$(echo "$get_letsencrypt" | tr '[:upper:]' '[:lower:]')
+if [ "$get_letsencrypt" = "yes" ] || [ "$get_letsencrypt" = "y" ]; then
     echo ""
     echo "Получение Let's Encrypt сертификата..."
     
@@ -116,11 +119,12 @@ if [ "$get_letsencrypt" = "yes" ]; then
     echo ""
     echo "=== ШАГ 5: Переключение на Let's Encrypt сертификат ==="
     
+    # Переключение обратно на Let's Encrypt
     sed -i.bak \
-        -e 's|^# ssl_certificate /etc/letsencrypt/live/ovrin.xyz/fullchain.pem;|ssl_certificate /etc/letsencrypt/live/ovrin.xyz/fullchain.pem;|' \
-        -e 's|^# ssl_certificate_key /etc/letsencrypt/live/ovrin.xyz/privkey.pem;|ssl_certificate_key /etc/letsencrypt/live/ovrin.xyz/privkey.pem;|' \
-        -e 's|^ssl_certificate /etc/nginx/ssl/cert.pem;|# ssl_certificate /etc/nginx/ssl/cert.pem;|' \
-        -e 's|^ssl_certificate_key /etc/nginx/ssl/key.pem;|# ssl_certificate_key /etc/nginx/ssl/key.pem;|' \
+        -e '/^[[:space:]]*# ssl_certificate[[:space:]]\+\/etc\/letsencrypt\/live\/ovrin\.xyz\/fullchain\.pem;/s/^# //' \
+        -e '/^[[:space:]]*# ssl_certificate_key[[:space:]]\+\/etc\/letsencrypt\/live\/ovrin\.xyz\/privkey\.pem;/s/^# //' \
+        -e '/^[[:space:]]*ssl_certificate[[:space:]]\+\/etc\/nginx\/ssl\/cert\.pem;/s/^/# /' \
+        -e '/^[[:space:]]*ssl_certificate_key[[:space:]]\+\/etc\/nginx\/ssl\/key\.pem;/s/^/# /' \
         nginx.conf
     
     echo "✓ Nginx переключен на Let's Encrypt сертификат"
