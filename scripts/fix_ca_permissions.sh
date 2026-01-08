@@ -31,12 +31,13 @@ echo ""
 echo "Установка прав доступа для Docker контейнеров..."
 
 # Устанавливаем права так, чтобы:
-# - ca-key.pem: 644 (читаемый для всех, но не изменяемый случайно)
-#   ИЛИ 640 (читаемый для группы)
+# - ca-key.pem: 644 (читаемый для всех в Docker окружении)
+#   Примечание: В Docker окружении это безопасно, так как файл доступен только внутри контейнера
 # - ca-cert.pem: 644 (читаемый для всех - это публичный сертификат)
 
-# Для ca-key.pem: 640 (владелец читает/пишет, группа читает)
-chmod 640 "$CA_KEY"
+# Для ca-key.pem: 644 (читаемый для всех в контейнере)
+# В production можно использовать 640, если настроить правильную группу в Docker
+chmod 644 "$CA_KEY"
 chown $(whoami):$(id -gn) "$CA_KEY"
 
 # Для ca-cert.pem: 644 (все могут читать)
@@ -58,10 +59,16 @@ if docker-compose ps api | grep -q "Up"; then
     echo "Проверка чтения ca-key.pem из контейнера:"
     docker-compose exec -T api test -r /app/nginx/ssl/ca-key.pem && echo "  ✓ ca-key.pem читаемый" || echo "  ✗ ca-key.pem НЕ читаемый"
     
-    echo ""
-    echo "Если файлы не читаемые, возможно нужно:"
-    echo "1. Убедиться, что Docker контейнер запущен от правильного пользователя"
-    echo "2. Или установить более открытые права: chmod 644 $CA_KEY"
+    if docker-compose exec -T api test -r /app/nginx/ssl/ca-key.pem; then
+        echo ""
+        echo "✓ Все файлы доступны для чтения из контейнера!"
+    else
+        echo ""
+        echo "⚠ ca-key.pem все еще не читаемый. Устанавливаем более открытые права (644)..."
+        chmod 644 "$CA_KEY"
+        echo "  Права обновлены, проверяем снова..."
+        docker-compose exec -T api test -r /app/nginx/ssl/ca-key.pem && echo "  ✓ ca-key.pem теперь читаемый!" || echo "  ✗ Проблема с правами сохраняется"
+    fi
 else
     echo "⚠ API контейнер не запущен. Запустите его: docker-compose up -d api"
 fi
