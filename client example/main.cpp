@@ -47,6 +47,9 @@
 #include "LOGIN/cpr/cpr.h"
 #include "LOGIN/json.hpp"
 
+// Direct curl access for mTLS workaround
+#include <curl/curl.h>
+
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "LicenseCheck", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "LicenseCheck", __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "LicenseCheck", __VA_ARGS__)
@@ -114,63 +117,68 @@ constexpr const char* MASTER_KEY_HEX = "ca3695f66cc428a41e6bc8c2ed7ee27b0940fe4d
 // ============================================================================
 // Certificates are embedded in code and automatically written to app's internal storage
 // on first launch. This ensures certificates are available without manual installation.
+//
+// INSTRUCTIONS: Replace the certificate and key content below with your actual files:
+// 1. Copy content from client-cert.pem (lines 1-28) → CLIENT_CERT_CONTENT
+// 2. Copy content from client-key.pem (lines 1-29) → CLIENT_KEY_CONTENT
+// ============================================================================
 
 static const char* CLIENT_CERT_CONTENT = R"(-----BEGIN CERTIFICATE-----
-MIIEgzCCAmugAwIBAgIUJnIkuuV4lXCcqSH+67oM/weEwEswDQYJKoZIhvcNAQEL
+MIIEhzCCAm+gAwIBAgIUJnIkuuV4lXCcqSH+67oM/weEwEwwDQYJKoZIhvcNAQEL
 BQAwPTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMQ4wDAYDVQQKDAVQYW5lbDER
-MA8GA1UEAwwIUGFuZWwgQ0EwHhcNMjYwMTA4MDIxODA3WhcNMjcwMTA4MDIxODA3
-WjBUMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExFjAUBgNVBAcMDVNhbiBGcmFu
-Y2lzY28xDjAMBgNVBAoMBVBhbmVsMRAwDgYDVQQDDAdhbmRyb2lkMIIBIjANBgkq
-hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1eUc1jE8SMxpId2JLuFzaTiPLL4zxyXG
-N+ENTaWyQ7T7neUX6R7Sx0K2XXsrRZZAsSvdYHXqA+eL2BNvrcr2YrHTRWtWP7VP
-6RwzUwSCsVP81eWWeV3M4XJd3FKerSxPTjjJHVIBQA8FrCe5pCp+6gyxymqIjP1a
-/6HMddYKGzu/+O3ZZoULLReS1GQptW8ZU1zj1y2EmCilCBe3gpugUeTdGxMJYdFf
-KV5eZCTTElSofQNC0SStveoOrFjMCazMmnurtqg/rCzAmfT71tIQ2hUBmHn44X95
-8GHmHll1GE98I6pV5V9+9twSl23C7V58leN58LR1wx7F5eyw7cLK9QIDAQABo2Qw
-YjALBgNVHQ8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwHQYDVR0OBBYEFNuS
-M+eSxdHpAJLNbmlTulcV+QoTMB8GA1UdIwQYMBaAFM3BxWZUwUNIFwM2scYnQpvL
-7094MA0GCSqGSIb3DQEBCwUAA4ICAQAgOO0xQmq3ojJ+NiMPQLlJ6lsK5OO9fAwA
-JDl4/RlN0enkukh/SewPSMCWQvxjjHzrz9rKTlyh1/RYuDlog7tecYHhBLlWoFVA
-7PxgqaPnMRVQ9xB9S43mDdBQhsywJ8TDLI+RZwv7RGA5FsO/F+DZkCSBPwgsDkoD
-Y5THcFyywtPtSkhWbW+AT023Il4II/eysL8SZHwhYw+8KadBQChD7PAYrKvaqyYf
-TUNEY2WcuVvXqljdpiSpsHxUAX5gryvxcQhZOY+Z+oP0vec0F17yfdk9TpBARgfA
-oqZL9EP4R4nl8rn2+KnTFVDAmkMZMJ9Iv+9t48twwxRh7Sxv5PAt55KYorY9+nMw
-1zouX77XuRWqS3xV/jIGmtxRn3/1TpqmefkbRSydnFKrxIJC6X7TYibPQ/ekTZ35
-bwNbdvU/gF5BBjLNVQ+5VhpqMGugbLPwKhsVdY+RaMRIZOAaN+ogOatHgllvir+F
-1C0FcB5sbacob6ITX42rtGySe2rQkgKL9z0bzzsBCJi4NoI8Mh99Sj/a5P4kAO2d
-RRFjLhKQYoFfM0CoW8yaVKLK4Z6V3dmA7MOXl/G8GK5SfNo/In+xxCkWmqQ0eRO4
-ZrEEPTDGzjKJmIbuxEJoTCmd6SHFWpUUlARQRvtvUGkqaBntWj2GFGq18f8Dauw5
-YC+yZIavCw==
+MA8GA1UEAwwIUGFuZWwgQ0EwHhcNMjYwMTA4MDMxNDQ1WhcNMjcwMTA4MDMxNDQ1
+WjBYMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExFjAUBgNVBAcMDVNhbiBGcmFu
+Y2lzY28xDjAMBgNVBAoMBVBhbmVsMRQwEgYDVQQDDAt0ZXN0LWNsaWVudDCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKRwbUgPGEzd7HapZwoCpb21dyAI
+OSfsIZoTxH6BfbLKsAjrwWrcqPDMYAC3i0zwNpjU9Y+d6A2w68NqLrctryavG3T6
+eUGqCcCRpVfxgOOCQxF7/KYztwqT/MBJkNGXhbHCpr9Y5Aj6Hn2vni7lxasvNFB3
+lZeHLQ55Qur0fUyZedDphQsvkLD4dpYucn6FLST8X3D26FqRkMegwlSQVmBJhgnv
+kJBeXz14YkGBwTjIjPicWcy/v5hpbl2PizihfniSJ5fTP4ZzoAqIQ4n7mqPPmLzE
+qSIRgobMM64YmmXwekK2UtCjL3kYi3jCT5dF4GaPU9Yva0TCO/ANeRyYO5sCAwEA
+AaNkMGIwCwYDVR0PBAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMCMB0GA1UdDgQW
+BBTD1Q3YKn8yBOt3b89qMTR4jryh6zAfBgNVHSMEGDAWgBTNwcVmVMFDSBcDNrHG
+J0Kby+9PeDANBgkqhkiG9w0BAQsFAAOCAgEAsJEGF1AZZYVG8Zlb2v8LzXGyqVFF
+vBtQ/+6suiLyDC6JfLoeVaRr8QnT178hy3Eojp0foJwoR3usrBLTKnjpCLTf3tdo
+54HyCAVAnGuMvB63j5S9yCxVPhzVIelN8Vt72UZCyOQkF/Fe8fS5D+52JA6M1gNW
+qTCLGnR9ht237ocXvx0yzQl4WUSpgcWTJ/su2gEvXBPWfgtBNqtU6sTGJUhM5xB6
+I0/FrH1QBbuJss9PL2suJf0L0z2T0tUQ8zkv+wUbQmZBlLHJBMJIWXk0uJT5+bzN
+qAUHnY6cSAxaXORQHJo+K1PpiKhqgePLcn4eZ5Ykoi0Y3MIzg5fByi/Vad8n2mwQ
+lPRHX09IU2xLeNI9lye5UIE0Egx+oZ+4gjhsB16TNp0aMe6zuTlqEvDVZG0hpxtp
+SPmnzi28wvgfYkYgr7iqQ5yV9hhpNXEkUfmRYooZp0u9U8AFp4nG338REdToYJk7
+bomDjJg5iZE3xcJFx7Pym0ZB1MapV/3F8sBQzRpjy2GuWjNMnOurZDVGzSnAws3d
+WXFxAci8MGPztKBJmSriJHUPOUdwFMzlz2sNMBGTlRnXSYw9YXUdTkah+joCwX+d
+xP9mKMSTRinmlSxz73by/TQok8ZIyfdvjhX0N16zC3qOzSKqpC6wS4dDp193xdS7
+/oFMP4qYpiNc97o=
 -----END CERTIFICATE-----
 )";
 
 static const char* CLIENT_KEY_CONTENT = R"(-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDV5RzWMTxIzGkh
-3Yku4XNpOI8svjPHJcY34Q1NpbJDtPud5RfpHtLHQrZdeytFlkCxK91gdeoD54vY
-E2+tyvZisdNFa1Y/tU/pHDNTBIKxU/zV5ZZ5Xczhcl3cUp6tLE9OOMkdUgFADwWs
-J7mkKn7qDLHKaoiM/Vr/ocx11gobO7/47dlmhQstF5LUZCm1bxlTXOPXLYSYKKUI
-F7eCm6BR5N0bEwlh0V8pXl5kJNMSVKh9A0LRJK296g6sWMwJrMyae6u2qD+sLMCZ
-9PvW0hDaFQGYefjhf3nwYeYeWXUYT3wjqlXlX3723BKXbcLtXnyV43nwtHXDHsXl
-7LDtwsr1AgMBAAECggEALtJKb7Cza5QjZ2BhSTvc0amp3bd9ChkAvPasvNSKozuY
-4MVnaIZwyWGXHft6S29Klf3uJdFp+pTTDeejSL3nFU+r2cRXSvbbmUGtEn0oRr0F
-2aS6PbMEyE0KstH7HhlW+t5/V8W9tFIVgcvoXUFYKs/Ak3iij4peQxsd8KV77N3O
-ujUPE2WM1xU/pEcLw4aH3bloG3ZIfcqAfltAn8q30ACWgf0pTbPvN71OHnCFsMSV
-JBEhN6YAi8l9tVCCLW8+KfVW7M6S9IKAjy7vCkufO+bu9uUxiaKDuhRIAmkoFixN
-vYUuAzY5riSCjEFaOzPThlu+xnva4LsIqawSczLYAQKBgQD8LNw7qw/EFaPY+mRw
-953LKH8AQKAOXUYfT8xbmVzNNQPbpDPMIoApwkJPUL7jNqrFsIRXWlaiHAjBhXht
-z1XhtBqeHRccTS3hcEpBSMCUiL6bB0hYiFRl7i6c3RWcVJhlKqO3tgXVXFcrbUc3
-arFbZcTJsDmzggWrx2k/Nsqj9QKBgQDZI55jTPPdHlapcWGLp9PixgWB2uQLjZha
-zlG63KimmGSMNuMI8muRDxcZwF+L1Vd7Euf3Z/jVY2Ml/Hk8HB72ujRar7QL8ILL
-3EQCu496QZhyPZtCXQWUetSQnxJWMGHmlMIH/zyYbjCFXLBC+s5FqMNWz2d/eA+w
-28v/oPYrAQKBgQDLxAQBQuxuaX4H6ewXTD541rQopA+xC7WJv5VFvtq6Bkijxj8E
-iCw/kfS62mgkeRvsugF2BE1UmIqKtSrmsE6ZHksT0DXIbKTSMUYPEpZqb0R1SKEw
-yJhJ9Pg9UHgR5lluBdJcs/xqtz7InHibUt8VF1q4DmnRnxKuB2gH6GI9sQKBgDl+
-lezDLnspEldRXzvEV3Vfa4vjsqhgeKvqn3dz//AEv/LkgZ8X2WWSclJuPp5fAgfj
-jKpUzG1sII+pV0yUQZqg2UX96hWTPH7QNu3mTepYPg5Zw6eBy/1xvKECja9mpjWQ
-xAOsEJZn7s8RKNbDZCTLt9Vfm48D8lupB04Lh8MBAoGBAIYlVtvYIDSW7YG6mMFD
-50bhDQGaZP+UTN4zflyaaSC+EH0I7RfoeMKtdNUkjO5rc2uJpAeaNyJjb9HtkW6r
-C3dh2ha3r++AH0JEi7LXbbKFDo9OZ3XpLNl7w8hviWzExc0Vj7cOPFVCpQaILbbw
-gzic9ZxpAFsVtj/DxhY6JLtd
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCkcG1IDxhM3ex2
+qWcKAqW9tXcgCDkn7CGaE8R+gX2yyrAI68Fq3KjwzGAAt4tM8DaY1PWPnegNsOvD
+ai63La8mrxt0+nlBqgnAkaVX8YDjgkMRe/ymM7cKk/zASZDRl4Wxwqa/WOQI+h59
+r54u5cWrLzRQd5WXhy0OeULq9H1MmXnQ6YULL5Cw+HaWLnJ+hS0k/F9w9uhakZDH
+oMJUkFZgSYYJ75CQXl89eGJBgcE4yIz4nFnMv7+YaW5dj4s4oX54kieX0z+Gc6AK
+iEOJ+5qjz5i8xKkiEYKGzDOuGJpl8HpCtlLQoy95GIt4wk+XReBmj1PWL2tEwjvw
+DXkcmDubAgMBAAECggEAHWd5MyR33O7mJMXgBfs5NfYoChNOXSQtUgbs4Q44surp
+lX7KxFgW4ZA6LoajoytlJ+kUzAyZfTFAx13KYrkJk+pGB6HuYt6MBeJFZbdqq8QU
+SCEaqYGf3oVd8eh1u/TTVFkRRjAX/r7zCtiHea1ermCvgyAPINxsIyVt4OO9MCAM
+Bc3fXA8fRsDO9M02nZns8s41hKZ+Hw19g9vsMxQuXmN2YYC2n2WXrO24gfPsYN7K
+zAW5tIlUUEc/E0z+q5HXg50ky9qVfIYkN0E3rlzHl9RHHk5B+fY9DcZ9PbxeZb3f
+TBorPD9hL9ssGa4wLgrBMTH+K6r8Hv4tVR6R3D8lYQKBgQDchiOp3eylVsZyiAlA
+pxM/6/FLiQqk4qGpVHo1zD6U7upmGRKyQiD0XH+qWEBDuwIRqQ7rEVCzwp/FwHct
+FgzZmVqFV17BHP72c2/csLOh+J2V6USM0GfdGDSJpvD/e/IrltNnCSlPvjWD9q3q
+FgAxBRfmyqwMB4ktSwzO/BLhawKBgQC+5IqLNEjw8oSNVkBh54LSk/VKljN2AW/s
+qcDQ7cI0B1GFPHzV6i+LX2EP0nC7wPHOrMDLuFS/j7gQ2GyfvqaqCgpthLCrQdC+
+h+G/Tsvku6Ah1UiTJnh+s2RUEEAtfZ132X0B4IphEX5vRkMamAk2n5baTG7G5L6h
+p230coEqkQKBgEmZl3ONNvsj0A3Pq07htEIETD9KmLvZS91I7ZTg+w4YAzFaMuw9
+t+P2r0E6PRCd7J3aT7lSyR2F2m9UwjHRBy7kyNpyA5TuSYYVlwMQEpP/dxDejtt0
+fwXCm15J0mtigbvclefwndIYiKHnhbn35850hbqob+1/4l+0iazXYrHLAoGAfsn7
+P1Rd8jOSWPHl12FWohkF/iFfUszHk1B4sgyJRddqjO1NGSPvqkmShVjH6dzQfu59
+K5JmL8n8fqvREhUmS6BZpr5QPZ98T2CfT1q90FHSnUY1aw9NTxJF3BPjHJPnaDg7
+cGi8YJam/K+VWG+NBwvevWWw2kgKWgKD5K29HxECgYBhzg3Ud4mx5Pv7JMEifo0G
+DNfslJOABB/gnnvdxPBd9JeSPYoqfcD/c1Jgmao7X/10TGFTzqXPM8Rz/65IwlkD
+23CmpBHB7cSJreOAOVteTdW4/+yLGZbTc/O4KgzgNVFxxNlaR8QKgyj52yPCNdF3
+o7i+ilJIce5YDey8ZBEktw==
 -----END PRIVATE KEY-----
 )";
 
@@ -540,10 +548,58 @@ static bool fileExistsAndReadable(const std::string& path) {
 }
 
 /**
- * Find certificate files - tries app's internal files directory first, then Download directory
- * Priority:
- * 1. /data/data/com.package.name/files/ (app-private, no permissions needed)
- * 2. /storage/emulated/0/Download/ (requires READ_EXTERNAL_STORAGE permission)
+ * Write embedded certificates to app's internal storage
+ * This allows libcurl to read certificate files directly
+ */
+static bool WriteEmbeddedCertificates(android_app* app) {
+    if (!app || !app->activity) {
+        LOGE("WriteEmbeddedCertificates: Invalid app pointer");
+        return false;
+    }
+    
+    std::string filesDir = GetAppFilesDir(app);
+    if (filesDir.empty()) {
+        LOGE("WriteEmbeddedCertificates: Cannot get app files directory");
+        return false;
+    }
+    
+    std::string certPath = filesDir + "/client-cert.pem";
+    std::string keyPath = filesDir + "/client-key.pem";
+    
+    // Write certificate file
+    std::ofstream certFile(certPath, std::ios::binary);
+    if (!certFile.is_open()) {
+        LOGE("WriteEmbeddedCertificates: Cannot create certificate file: %s", certPath.c_str());
+        return false;
+    }
+    certFile << CLIENT_CERT_CONTENT;
+    certFile.close();
+    chmod(certPath.c_str(), 0600);  // rw-------
+    
+    // Write key file
+    std::ofstream keyFile(keyPath, std::ios::binary);
+    if (!keyFile.is_open()) {
+        LOGE("WriteEmbeddedCertificates: Cannot create key file: %s", keyPath.c_str());
+        std::remove(certPath.c_str());
+        return false;
+    }
+    keyFile << CLIENT_KEY_CONTENT;
+    keyFile.close();
+    chmod(keyPath.c_str(), 0600);  // rw-------
+    
+    g_ClientCertPath = certPath;
+    g_ClientKeyPath = keyPath;
+    
+    LOGI("WriteEmbeddedCertificates: ✅ Embedded certificates written to:");
+    LOGI("WriteEmbeddedCertificates:   Certificate: %s", certPath.c_str());
+    LOGI("WriteEmbeddedCertificates:   Key: %s", keyPath.c_str());
+    
+    return true;
+}
+
+/**
+ * Initialize certificate files - uses embedded certificates
+ * Writes embedded certificates to app's internal storage if not already present
  */
 static bool InitializeCertificateFiles(android_app* app) {
     if (!app || !app->activity) {
@@ -551,122 +607,68 @@ static bool InitializeCertificateFiles(android_app* app) {
         return false;
     }
     
-    LOGI("InitializeCertificateFiles: START - Looking for certificate files");
+    LOGI("InitializeCertificateFiles: START - Using embedded certificates");
     
-    // Try app's internal files directory first (recommended - no permissions needed)
     std::string filesDir = GetAppFilesDir(app);
-    if (!filesDir.empty()) {
-        std::string certPath = filesDir + "/client-cert.pem";
-        std::string keyPath = filesDir + "/client-key.pem";
-        
-        LOGI("InitializeCertificateFiles: Trying app files directory: %s", filesDir.c_str());
-        
-        if (fileExistsAndReadable(certPath) && fileExistsAndReadable(keyPath)) {
-            g_ClientCertPath = certPath;
-            g_ClientKeyPath = keyPath;
-            LOGI("InitializeCertificateFiles: Found certificates in app files directory");
-            // Validate files below...
-        }
-    }
-    
-    // If not found in app files dir, try Download directory (requires permissions)
-    if (g_ClientCertPath.empty() || g_ClientKeyPath.empty()) {
-        std::string downloadDir = GetDownloadDir(app);
-        if (!downloadDir.empty()) {
-            std::string certPath = downloadDir + "/client-cert.pem";
-            std::string keyPath = downloadDir + "/client-key.pem";
-            
-            LOGI("InitializeCertificateFiles: Trying Download directory: %s", downloadDir.c_str());
-            
-            // Check if Download directory exists and is accessible
-            struct stat dirStat;
-            if (stat(downloadDir.c_str(), &dirStat) == 0 && S_ISDIR(dirStat.st_mode)) {
-                if (fileExistsAndReadable(certPath) && fileExistsAndReadable(keyPath)) {
-                    g_ClientCertPath = certPath;
-                    g_ClientKeyPath = keyPath;
-                    LOGI("InitializeCertificateFiles: Found certificates in Download directory");
-                } else {
-                    LOGW("InitializeCertificateFiles: Download directory exists but certificates not found");
-                    LOGW("InitializeCertificateFiles: Looking for: %s and %s", certPath.c_str(), keyPath.c_str());
-                }
-            } else {
-                LOGW("InitializeCertificateFiles: Download directory not accessible: %s", downloadDir.c_str());
-            }
-        }
-    }
-    
-    // Check if we found certificates in either location
-    if (g_ClientCertPath.empty() || g_ClientKeyPath.empty()) {
-        LOGE("InitializeCertificateFiles: Certificate files not found in any location");
-        LOGE("InitializeCertificateFiles: Please copy client-cert.pem and client-key.pem to:");
-        LOGE("InitializeCertificateFiles:   1. App files directory: %s (recommended)", filesDir.c_str());
-        LOGE("InitializeCertificateFiles:   2. Download directory (requires READ_EXTERNAL_STORAGE permission)");
+    if (filesDir.empty()) {
+        LOGE("InitializeCertificateFiles: Cannot get app files directory");
         return false;
     }
     
-    LOGI("InitializeCertificateFiles: Certificate path: %s", g_ClientCertPath.c_str());
-    LOGI("InitializeCertificateFiles: Key path: %s", g_ClientKeyPath.c_str());
+    std::string certPath = filesDir + "/client-cert.pem";
+    std::string keyPath = filesDir + "/client-key.pem";
     
-    // Verify files are readable
-    if (!fileExistsAndReadable(g_ClientCertPath) || !fileExistsAndReadable(g_ClientKeyPath)) {
-        LOGE("InitializeCertificateFiles: Certificate files found but not readable");
-        if (!fileExistsAndReadable(g_ClientCertPath)) {
-            LOGE("InitializeCertificateFiles: Cannot read: %s", g_ClientCertPath.c_str());
+    // Check if certificates already exist
+    if (fileExistsAndReadable(certPath) && fileExistsAndReadable(keyPath)) {
+        LOGI("InitializeCertificateFiles: Certificate files already exist, using them");
+        g_ClientCertPath = certPath;
+        g_ClientKeyPath = keyPath;
+    } else {
+        // Write embedded certificates to files
+        LOGI("InitializeCertificateFiles: Writing embedded certificates to files...");
+        if (!WriteEmbeddedCertificates(app)) {
+            LOGE("InitializeCertificateFiles: Failed to write embedded certificates");
+            return false;
         }
-        if (!fileExistsAndReadable(g_ClientKeyPath)) {
-            LOGE("InitializeCertificateFiles: Cannot read: %s", g_ClientKeyPath.c_str());
-        }
-        return false;
     }
     
-    // Verify certificate file is valid
+    // Verify files are valid
     std::ifstream certCheck(g_ClientCertPath);
     if (!certCheck.is_open()) {
-        LOGE("InitializeCertificateFiles: Failed to open certificate file for reading: %s", g_ClientCertPath.c_str());
+        LOGE("InitializeCertificateFiles: Cannot open certificate file: %s", g_ClientCertPath.c_str());
         return false;
     }
     
     std::string certContent((std::istreambuf_iterator<char>(certCheck)), std::istreambuf_iterator<char>());
     certCheck.close();
     
-    if (certContent.empty()) {
-        LOGE("InitializeCertificateFiles: Certificate file is empty: %s", g_ClientCertPath.c_str());
-        return false;
-    }
-    
-    if (certContent.find("-----BEGIN CERTIFICATE-----") == std::string::npos ||
+    if (certContent.empty() || 
+        certContent.find("-----BEGIN CERTIFICATE-----") == std::string::npos ||
         certContent.find("-----END CERTIFICATE-----") == std::string::npos) {
-        LOGE("InitializeCertificateFiles: Certificate file appears invalid (missing BEGIN/END markers)");
-        LOGE("InitializeCertificateFiles: File content (first 100 chars): %s", certContent.substr(0, 100).c_str());
+        LOGE("InitializeCertificateFiles: Invalid certificate file");
         return false;
     }
     
-    // Verify key file is valid
     std::ifstream keyCheck(g_ClientKeyPath);
     if (!keyCheck.is_open()) {
-        LOGE("InitializeCertificateFiles: Failed to open key file for reading: %s", g_ClientKeyPath.c_str());
+        LOGE("InitializeCertificateFiles: Cannot open key file: %s", g_ClientKeyPath.c_str());
         return false;
     }
     
     std::string keyContent((std::istreambuf_iterator<char>(keyCheck)), std::istreambuf_iterator<char>());
     keyCheck.close();
     
-    if (keyContent.empty()) {
-        LOGE("InitializeCertificateFiles: Key file is empty: %s", g_ClientKeyPath.c_str());
-        return false;
-    }
-    
-    if (keyContent.find("-----BEGIN PRIVATE KEY-----") == std::string::npos ||
+    if (keyContent.empty() ||
+        keyContent.find("-----BEGIN PRIVATE KEY-----") == std::string::npos ||
         keyContent.find("-----END PRIVATE KEY-----") == std::string::npos) {
-        LOGE("InitializeCertificateFiles: Key file appears invalid (missing BEGIN/END markers)");
+        LOGE("InitializeCertificateFiles: Invalid key file");
         return false;
     }
     
-    LOGI("InitializeCertificateFiles: Certificate file found and valid (size: %zu bytes)", certContent.length());
-    LOGI("InitializeCertificateFiles: Key file found and valid (size: %zu bytes)", keyContent.length());
-    LOGI("InitializeCertificateFiles: SUCCESS - Certificate files loaded successfully");
-    LOGI("InitializeCertificateFiles: Using certificate from: %s", g_ClientCertPath.c_str());
-    LOGI("InitializeCertificateFiles: Using key from: %s", g_ClientKeyPath.c_str());
+    LOGI("InitializeCertificateFiles: ✅ SUCCESS - Certificate files ready");
+    LOGI("InitializeCertificateFiles:   Certificate: %s (%zu bytes)", g_ClientCertPath.c_str(), certContent.length());
+    LOGI("InitializeCertificateFiles:   Key: %s (%zu bytes)", g_ClientKeyPath.c_str(), keyContent.length());
+    
     return true;
 }
 
@@ -846,6 +848,49 @@ std::string decryptWithMasterKey(const std::string& encryptedDataB64, const std:
 // - Client verifies server certificate (standard SSL/TLS verification)
 // - Protection against MITM attacks without needing pinning
 
+// SSL_CTX callback to disable server certificate verification
+static CURLcode ssl_ctx_callback(CURL* curl, void* sslctx, void* userptr) {
+    (void)curl;  // Unused
+    (void)userptr;  // Unused
+    LOGI("ApiClient: 🔧 SSL_CTX callback called - configuring SSL context");
+    SSL_CTX* ctx = (SSL_CTX*)sslctx;
+    if (ctx) {
+        // Disable server certificate verification aggressively
+        SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
+        SSL_CTX_set_verify_depth(ctx, 0);
+
+        // Load client certificate/key directly into SSL_CTX to force sending even if libcurl skips
+        if (!g_ClientCertPath.empty()) {
+            if (SSL_CTX_use_certificate_file(ctx, g_ClientCertPath.c_str(), SSL_FILETYPE_PEM) == 1) {
+                LOGI("ApiClient: ✅ SSL_CTX loaded client certificate");
+            } else {
+                LOGW("ApiClient: ⚠️ SSL_CTX failed to load client certificate");
+            }
+        }
+        if (!g_ClientKeyPath.empty()) {
+            // Prefer RSA-converted key if it exists
+            std::string keyPath = g_ClientKeyPath;
+            size_t lastSlash = g_ClientKeyPath.find_last_of('/');
+            std::string rsaKey = (lastSlash != std::string::npos)
+                                     ? g_ClientKeyPath.substr(0, lastSlash) + "/client-key-rsa.pem"
+                                     : "client-key-rsa.pem";
+            struct stat st{};
+            if (stat(rsaKey.c_str(), &st) == 0) keyPath = rsaKey;
+
+            if (SSL_CTX_use_PrivateKey_file(ctx, keyPath.c_str(), SSL_FILETYPE_PEM) == 1) {
+                LOGI("ApiClient: ✅ SSL_CTX loaded client private key");
+            } else {
+                LOGW("ApiClient: ⚠️ SSL_CTX failed to load client private key");
+            }
+        }
+
+        LOGI("ApiClient: ✅ SSL_CTX verification disabled and client cert loaded");
+    } else {
+        LOGW("ApiClient: ⚠️  SSL_CTX callback called but ctx is null");
+    }
+    return CURLE_OK;
+}
+
 // ============================================================================
 // API Communication
 // ============================================================================
@@ -869,6 +914,50 @@ private:
         // This is a placeholder - implement asset loading based on your Android setup
         // You may need to use AAssetManager from Android NDK
         return "";
+    }
+
+    // Reuse the existing client certificate as a dummy CA bundle so that
+    // SSL_CTX_load_verify_locations succeeds. A previous placeholder PEM
+    // contained garbage data, which caused "error setting certificate verify
+    // locations" before the SSL_CTX callback could disable verification.
+    // Returns empty string if the dummy file could not be written.
+    static std::string createDummyCaFromClientCert() {
+        if (g_ClientCertPath.empty()) {
+            return "";
+        }
+
+        size_t lastSlash = g_ClientCertPath.find_last_of('/');
+        if (lastSlash == std::string::npos) {
+            LOGW("ApiClient: Cannot derive dummy CA path from client cert path");
+            return "";
+        }
+
+        std::string dummyCaPath = g_ClientCertPath.substr(0, lastSlash) + "/dummy-ca.pem";
+
+        std::ifstream certIn(g_ClientCertPath);
+        if (!certIn.good()) {
+            LOGW("ApiClient: Cannot open client certificate to seed dummy CA: %s", g_ClientCertPath.c_str());
+            return "";
+        }
+        std::string certContent((std::istreambuf_iterator<char>(certIn)), std::istreambuf_iterator<char>());
+        certIn.close();
+
+        if (certContent.find("-----BEGIN CERTIFICATE-----") == std::string::npos) {
+            LOGW("ApiClient: Client certificate content missing BEGIN CERTIFICATE marker; not using as dummy CA");
+            return "";
+        }
+
+        std::ofstream dummyCa(dummyCaPath, std::ios::trunc);
+        if (!dummyCa.is_open()) {
+            LOGW("ApiClient: Failed to create dummy CA file at %s", dummyCaPath.c_str());
+            return "";
+        }
+        dummyCa << certContent;
+        dummyCa.close();
+        chmod(dummyCaPath.c_str(), 0644);
+
+        LOGI("ApiClient: Dummy CA written using client certificate: %s", dummyCaPath.c_str());
+        return dummyCaPath;
     }
     
     static cpr::Session createSession() {
@@ -922,9 +1011,12 @@ private:
         const char* caBundlePath = nullptr;
         
         // Try to find a CA bundle file (not directory)
+        // Android system CA certificates are in /system/etc/security/cacerts/ (directory)
+        // but we need a file. Try to find a bundle file or use dummy CA
         const char* caBundleFilePaths[] = {
             "/etc/ssl/certs/ca-certificates.crt",  // Standard Linux CA bundle file
             "/system/etc/security/cacerts-bks",     // Android BKS keystore (if file)
+            "/system/etc/security/cacerts/",        // Android CA directory (won't work, but check anyway)
             nullptr
         };
         
@@ -1012,52 +1104,68 @@ private:
                     LOGW("ApiClient: Key is in PKCS#8 format (-----BEGIN PRIVATE KEY-----)");
                     LOGW("ApiClient: Android libcurl may not send client cert with PKCS#8 + VerifyPeer=false");
                     
-                    // Try to convert PKCS#8 to RSA format automatically
+                    // Convert PKCS#8 to RSA format using OpenSSL API (not command)
                     // Create RSA format key file in same directory
                     size_t lastSlash = g_ClientKeyPath.find_last_of('/');
                     if (lastSlash != std::string::npos) {
                         std::string keyDir = g_ClientKeyPath.substr(0, lastSlash);
                         std::string rsaKeyPath = keyDir + "/client-key-rsa.pem";
                         
-                        LOGW("ApiClient: Attempting to convert PKCS#8 to RSA format...");
+                        LOGW("ApiClient: Converting PKCS#8 to RSA format using OpenSSL API...");
                         LOGW("ApiClient: RSA key path: %s", rsaKeyPath.c_str());
                         
-                        // Try to use OpenSSL command to convert (if available on Android)
-                        // Note: This requires OpenSSL binary in PATH - may not work on all devices
-                        std::string convertCmd = "openssl rsa -in \"" + g_ClientKeyPath + "\" -out \"" + rsaKeyPath + "\" 2>&1";
-                        FILE* pipe = popen(convertCmd.c_str(), "r");
-                        if (pipe) {
-                            char buffer[128];
-                            std::string result;
-                            while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-                                result += buffer;
-                            }
-                            pclose(pipe);
+                        // Use OpenSSL API to convert PKCS#8 to RSA format
+                        FILE* keyFile = fopen(g_ClientKeyPath.c_str(), "r");
+                        if (keyFile) {
+                            EVP_PKEY* pkey = PEM_read_PrivateKey(keyFile, nullptr, nullptr, nullptr);
+                            fclose(keyFile);
                             
-                            // Check if conversion succeeded
-                            std::ifstream rsaKeyCheck(rsaKeyPath);
-                            if (rsaKeyCheck.good()) {
-                                std::string rsaContent((std::istreambuf_iterator<char>(rsaKeyCheck)), std::istreambuf_iterator<char>());
-                                rsaKeyCheck.close();
-                                if (rsaContent.find("-----BEGIN RSA PRIVATE KEY-----") != std::string::npos) {
-                                    actualKeyPath = rsaKeyPath;
-                                    chmod(actualKeyPath.c_str(), 0600);
-                                    LOGI("ApiClient: ✅ Successfully converted PKCS#8 to RSA format");
-                                    LOGI("ApiClient: Using RSA format key: %s", actualKeyPath.c_str());
+                            if (pkey) {
+                                // Write RSA format key
+                                FILE* rsaKeyFile = fopen(rsaKeyPath.c_str(), "w");
+                                if (rsaKeyFile) {
+                                    // Use PEM_write_PrivateKey with PKCS1 format (RSA)
+                                    // PEM_write_PKCS8PrivateKey writes PKCS#8, we need RSA format
+                                    // Use PEM_write_RSAPrivateKey for RSA format
+                                    RSA* rsa = EVP_PKEY_get1_RSA(pkey);
+                                    if (rsa) {
+                                        if (PEM_write_RSAPrivateKey(rsaKeyFile, rsa, nullptr, nullptr, 0, nullptr, nullptr)) {
+                                            fclose(rsaKeyFile);
+                                            chmod(rsaKeyPath.c_str(), 0600);
+                                            actualKeyPath = rsaKeyPath;
+                                            LOGI("ApiClient: ✅ Successfully converted PKCS#8 to RSA format using OpenSSL API");
+                                            LOGI("ApiClient: Using RSA format key: %s", actualKeyPath.c_str());
+                                        } else {
+                                            fclose(rsaKeyFile);
+                                            std::remove(rsaKeyPath.c_str());
+                                            LOGW("ApiClient: Failed to write RSA key file");
+                                        }
+                                        RSA_free(rsa);
+                                    } else {
+                                        fclose(rsaKeyFile);
+                                        std::remove(rsaKeyPath.c_str());
+                                        LOGW("ApiClient: Key is not RSA key (may be EC or other type)");
+                                    }
+                                    EVP_PKEY_free(pkey);
                                 } else {
-                                    LOGW("ApiClient: Conversion produced invalid RSA key, using original PKCS#8");
-                                    std::remove(rsaKeyPath.c_str());
+                                    LOGW("ApiClient: Cannot create RSA key file: %s", rsaKeyPath.c_str());
+                                    EVP_PKEY_free(pkey);
                                 }
                             } else {
-                                LOGW("ApiClient: Conversion failed (OpenSSL may not be available)");
-                                LOGW("ApiClient: Using original PKCS#8 key - may not work with VerifyPeer=false");
-                                if (!result.empty()) {
-                                    LOGW("ApiClient: OpenSSL error: %s", result.c_str());
-                                }
+                                LOGW("ApiClient: Failed to load PKCS#8 key from file");
+                                unsigned long err = ERR_get_error();
+                                char err_buf[256];
+                                ERR_error_string_n(err, err_buf, sizeof(err_buf));
+                                LOGW("ApiClient: OpenSSL error: %s", err_buf);
                             }
                         } else {
-                            LOGW("ApiClient: Cannot execute OpenSSL - conversion unavailable");
-                            LOGW("ApiClient: Using original PKCS#8 key - may not work with VerifyPeer=false");
+                            LOGW("ApiClient: Cannot open key file for reading: %s", g_ClientKeyPath.c_str());
+                        }
+                        
+                        // If conversion failed, warn but continue with original key
+                        if (actualKeyPath == g_ClientKeyPath) {
+                            LOGW("ApiClient: ⚠️  Using original PKCS#8 key - may not work with VerifyPeer=false");
+                            LOGW("ApiClient: 💡 Конвертируйте ключ на сервере и скопируйте RSA версию на устройство");
                         }
                     }
                 } else if (isRsaFormat) {
@@ -1069,41 +1177,50 @@ private:
                 // Use the actual key path (may be original or converted RSA)
                 std::string finalKeyPath = actualKeyPath;
                 
-                if (foundCaBundle && verifyPeer) {
-                    // Use CA bundle for server certificate verification
-                    LOGI("ApiClient:   CA bundle: %s", caBundlePath);
-                    session.SetSslOptions(cpr::Ssl(
-                        cpr::ssl::TLSv1_2{},
-                        cpr::ssl::VerifyHost{true},      // Verify hostname matches certificate
-                        cpr::ssl::VerifyPeer{true},      // Verify server certificate
-                        cpr::ssl::CaInfo{caBundlePath},  // CA bundle for server cert verification
-                        cpr::ssl::CertFile{g_ClientCertPath.c_str()},  // Client certificate file path
-                        cpr::ssl::KeyFile{finalKeyPath.c_str()}      // Client private key file path (RSA or PKCS#8)
-                    ));
-                    LOGI("ApiClient: ✅ mTLS enabled with client certificate and CA bundle");
-                } else {
-                    // No CA bundle available - use VerifyPeer=false
-                    // IMPORTANT: On some Android libcurl versions, client certificate may NOT be sent
-                    // if VerifyPeer=false. This is a known bug in some libcurl versions.
-                    //
-                    // If this fails (server returns 403), the issue is likely:
-                    // 1. PKCS#8 key format not supported - convert to RSA: openssl rsa -in client-key.pem -out client-key-rsa.pem
-                    // 2. libcurl version bug - client cert not sent with VerifyPeer=false
-                    // 3. File permissions or paths issue
-                    LOGW("ApiClient: ⚠️  No CA bundle available - using VerifyPeer=false");
-                    LOGW("ApiClient: Client certificate SHOULD be sent (check server logs)");
-                    LOGW("ApiClient: If server returns 403, try converting key to RSA format");
-                    
-                    session.SetSslOptions(cpr::Ssl(
-                        cpr::ssl::TLSv1_2{},
-                        cpr::ssl::VerifyHost{false},      // Disable hostname verification
-                        cpr::ssl::VerifyPeer{false},      // Disable server cert verification  
-                        cpr::ssl::CertFile{g_ClientCertPath.c_str()},  // Client certificate file path
-                        cpr::ssl::KeyFile{finalKeyPath.c_str()}      // Client private key file path (RSA or PKCS#8)
-                    ));
-                    LOGI("ApiClient: ✅ mTLS configured with VerifyPeer=false");
-                    LOGI("ApiClient: To convert key to RSA: openssl rsa -in client-key.pem -out client-key-rsa.pem");
+                // Unconditional: disable peer/host verification and force-load client cert/key.
+                // This avoids chain-too-long errors on Android libcurl while still sending cert.
+                try {
+                    auto curlHolder = session.GetCurlHolder();
+                    if (curlHolder && curlHolder->handle) {
+                        CURL* curl = curlHolder->handle;
+                        curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, ssl_ctx_callback);
+                        curl_easy_setopt(curl, CURLOPT_SSL_CTX_DATA, nullptr);
+                        LOGI("ApiClient: ✅ SSL_CTX callback set (pre-SetSslOptions)");
+                    }
+                } catch (...) {
+                    LOGW("ApiClient: ⚠️  Cannot set SSL_CTX callback before SSL options");
                 }
+
+                session.SetSslOptions(cpr::Ssl(
+                    cpr::ssl::TLSv1_2{},
+                    cpr::ssl::VerifyHost{false},
+                    cpr::ssl::VerifyPeer{false},
+                    cpr::ssl::CertFile{g_ClientCertPath.c_str()},
+                    cpr::ssl::KeyFile{finalKeyPath.c_str()}
+                ));
+
+                try {
+                    auto curlHolder = session.GetCurlHolder();
+                    if (curlHolder && curlHolder->handle) {
+                        CURL* curl = curlHolder->handle;
+                        curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, ssl_ctx_callback);
+                        curl_easy_setopt(curl, CURLOPT_SSL_CTX_DATA, nullptr);
+                        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+                        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+                        curl_easy_setopt(curl, CURLOPT_SSLCERT, g_ClientCertPath.c_str());
+                        curl_easy_setopt(curl, CURLOPT_SSLKEY, finalKeyPath.c_str());
+                        curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
+                        curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
+                        LOGI("ApiClient: ✅ Curl handle configured with client cert (VerifyPeer disabled)");
+                    } else {
+                        LOGW("ApiClient: ⚠️  Cannot get curl handle - SSL_CTX callback not set");
+                    }
+                } catch (const std::exception& e) {
+                    LOGW("ApiClient: Exception setting SSL_CTX callback: %s", e.what());
+                } catch (...) {
+                    LOGW("ApiClient: Unknown exception setting SSL_CTX callback");
+                }
+
                 LOGI("ApiClient: Client certificate configured: %s", g_ClientCertPath.c_str());
                 LOGI("ApiClient: Client key configured: %s", finalKeyPath.c_str());
             } catch (const std::exception& e) {
@@ -1147,12 +1264,36 @@ private:
             return "SERVER_ERROR_503: Server temporarily unavailable (503)\n   Possible causes:\n   - Redis unavailable\n   - Server overloaded\n   - Check server logs";
         }
 
+        if (statusCode == 403) {
+            std::string errorMessage;
+            try {
+                json errorJson = json::parse(responseText);
+                if (errorJson.contains("error")) {
+                    errorMessage = errorJson["error"].get<std::string>();
+                    std::string lowerError = errorMessage;
+                    std::transform(lowerError.begin(), lowerError.end(), lowerError.begin(), ::tolower);
+                    if (lowerError.find("certificate") != std::string::npos || 
+                        lowerError.find("client certificate") != std::string::npos ||
+                        lowerError.find("mtls") != std::string::npos) {
+                        return "SERVER_ERROR_403_MTLS: Client certificate required.\n   Make sure client-cert.pem and client-key.pem are installed.\n   Contact administrator for client certificates.";
+                    }
+                }
+            } catch (...) {
+                // If JSON parsing fails, check if it's a plain text error
+                if (responseText.find("certificate") != std::string::npos || 
+                    responseText.find("Client certificate") != std::string::npos) {
+                    return "SERVER_ERROR_403_MTLS: Client certificate required.\n   Make sure client-cert.pem and client-key.pem are installed.\n   Contact administrator for client certificates.";
+                }
+            }
+            return "SERVER_ERROR_403: Access denied (403)\n   " + (errorMessage.empty() ? "Check server security settings" : errorMessage);
+        }
+
         std::string errorMessage;
         try {
             json errorJson = json::parse(responseText);
             if (errorJson.contains("error")) {
                 errorMessage = errorJson["error"].get<std::string>();
-                return errorMessage;
+                return "SERVER_ERROR_" + std::to_string(statusCode) + ": " + errorMessage;
             }
         } catch (...) {
             try {
@@ -1164,7 +1305,7 @@ private:
                     if (errorMessage.find("not found") != std::string::npos) {
                         return ErrorMessages::KEY_NOT_FOUND;
                     }
-                    return errorMessage;
+                    return "SERVER_ERROR_" + std::to_string(statusCode) + ": " + errorMessage;
                 }
             } catch (...) {
                 LOGE("Failed to decrypt error response");
@@ -1232,7 +1373,7 @@ public:
                 
                 if (challenge.empty()) {
                     LOGE("GetChallenge: Could not extract challenge");
-                    return "";
+                    return "SERVER_ERROR_500: Failed to extract challenge from server response";
                 }
 
                 if (result.contains("project_id")) {
@@ -1247,14 +1388,19 @@ public:
                 return challenge + "|" + canary;
             } catch (const std::exception& e) {
                 LOGE("GetChallenge: JSON parsing error: %s", e.what());
-                return "";
+                return "SERVER_ERROR_500: Failed to parse server response: " + std::string(e.what());
             }
         } else if (response.status_code == 404) {
             LOGE("GetChallenge: Key not found on server (404)");
             return ErrorMessages::KEY_NOT_FOUND;
         } else {
             LOGE("GetChallenge: Server error: %d", response.status_code);
-            return parseErrorResponse(response.status_code, response.text);
+            std::string errorMsg = parseErrorResponse(response.status_code, response.text);
+            // Always return error with SERVER_ERROR_ prefix to prevent continuation
+            if (errorMsg.find("SERVER_ERROR_") != 0) {
+                return "SERVER_ERROR_" + std::to_string(response.status_code) + ": " + errorMsg;
+            }
+            return errorMsg;
         }
     }
 
@@ -1433,26 +1579,32 @@ public:
         LOGI("CheckLicense: Step 1 - Getting challenge from server...");
         std::string challengeData = ApiClient::getChallenge(cleanedKey, fingerprint);
 
+        // Check for errors first - don't continue if there's an error
         if (challengeData == ErrorMessages::KEY_NOT_FOUND) {
             return "License key not found on server";
         }
 
         if (challengeData.find("SERVER_ERROR_") == 0) {
+            // Extract user-friendly error message
             size_t colonPos = challengeData.find(": ");
             if (colonPos != std::string::npos) {
                 std::string errorMsg = challengeData.substr(colonPos + 2);
-                if (challengeData.find("SERVER_ERROR_503") == 0) {
+                if (challengeData.find("SERVER_ERROR_403_MTLS") == 0) {
+                    return errorMsg;  // mTLS error already has full message
+                } else if (challengeData.find("SERVER_ERROR_503") == 0) {
                     return errorMsg;
                 } else if (challengeData.find("SERVER_ERROR_500") == 0) {
                     return "Internal server error (500)\n   " + errorMsg;
+                } else if (challengeData.find("SERVER_ERROR_403") == 0) {
+                    return errorMsg;
                 }
                 return "Server error\n   " + errorMsg;
             }
             return challengeData;
         }
 
-        if (challengeData.empty()) {
-            return "Error: Failed to get challenge from server";
+        if (challengeData.empty() || challengeData.find("|") == std::string::npos) {
+            return "Error: Failed to get challenge from server\n   Invalid response format";
         }
 
         LOGI("CheckLicense: Step 2 - Sending connect request...");
