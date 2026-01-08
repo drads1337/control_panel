@@ -92,28 +92,54 @@ def get_project_code(username: str):
             
             # Если нет валидного кода, создать новый
             print(f"\n📝 Создаю новый project invite code...")
-            invite_service = ProjectInviteService()
             
-            result = invite_service.create_project_invite_code(
-                user_id=user.id,
-                project_id=project_id,
-                expires_in_days=30
-            )
-            
-            if "error" in result:
-                print(f"❌ Ошибка: {result['error']}")
-                return
-            
-            code_data = result.get("invite_code", {})
-            code = code_data.get("code")
-            
-            if code:
+            try:
+                # Создать код напрямую через модель
+                from datetime import datetime, timedelta
+                import secrets
+                import string
+                from backend.models.keys import ReferralCode
+                from backend.models.products import ProductInviteCode
+                
+                # Генерировать уникальный код
+                def generate_unique_code(length=10):
+                    while True:
+                        characters = string.ascii_uppercase + string.digits
+                        code = "".join(secrets.choice(characters) for _ in range(length))
+                        
+                        invite_exists = ProjectInviteCode.query.filter_by(code=code).first() is not None
+                        referral_exists = ReferralCode.query.filter_by(code=code).first() is not None
+                        product_invite_exists = ProductInviteCode.query.filter_by(code=code).first() is not None
+                        
+                        if not (invite_exists or referral_exists or product_invite_exists):
+                            return code
+                
+                code = generate_unique_code()
+                expires_at = datetime.utcnow() + timedelta(days=30)
+                
+                new_code = ProjectInviteCode(
+                    code=code,
+                    project_id=project_id,
+                    created_by=user.id,
+                    expires_at=expires_at,
+                    is_used=False,
+                    is_expired=False
+                )
+                
+                db.session.add(new_code)
+                db.session.commit()
+                
                 print(f"\n✅ Создан новый project invite code:")
                 print(f"   Code: {code}")
                 print(f"   Действителен 30 дней")
                 return code
-            else:
-                print(f"❌ Не удалось создать код")
+                
+            except Exception as e:
+                db.session.rollback()
+                print(f"❌ Ошибка при создании кода: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                return None
                 
         except Exception as e:
             print(f"❌ Ошибка: {str(e)}")
