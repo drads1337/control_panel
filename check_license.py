@@ -466,8 +466,14 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert=No
         "project_id": project_id
     }
     
-    print(f"[GetChallenge] Отправка запроса на {url}")
+    print(f"\n[GetChallenge] {'='*60}")
+    print(f"[GetChallenge] URL: {url}")
     print(f"[GetChallenge] Данные: {json.dumps(data, indent=2)}")
+    if mtls_cert:
+        print(f"[GetChallenge] mTLS сертификат: {mtls_cert[0] if isinstance(mtls_cert, tuple) else mtls_cert}")
+    else:
+        print(f"[GetChallenge] ⚠ mTLS сертификат не используется")
+    print(f"[GetChallenge] {'='*60}")
     
     try:
         # Используем User-Agent, похожий на Android клиент, чтобы пройти валидацию
@@ -479,16 +485,19 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert=No
         # Отключаем проверку SSL если есть проблемы (для локального тестирования)
         # В продакшене это должно быть включено
         verify_ssl = os.environ.get("VERIFY_SSL", "true").lower() == "true"
+        print(f"[GetChallenge] SSL проверка: {'включена' if verify_ssl else 'отключена'}")
+        
         response = requests.post(
             url,
             json=data,
             headers=headers,
             cert=mtls_cert,  # None если сертификаты не найдены
-            timeout=10,
+            timeout=30,
             verify=verify_ssl
         )
         
         print(f"[GetChallenge] Статус ответа: {response.status_code}")
+        print(f"[GetChallenge] Заголовки ответа: {dict(response.headers)}")
         
         if response.status_code == 200:
             result = response.json()
@@ -554,11 +563,17 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
     # Решаем challenge
     if len(challenge) > 100:
         challenge_response = sha256(challenge)
+        print(f"[Connect] Challenge длинный (>100), используем sha256(challenge)")
     else:
         challenge_response = sha256(challenge + user_key + fingerprint)
+        print(f"[Connect] Challenge короткий (<=100), используем sha256(challenge + user_key + fingerprint)")
+    
+    print(f"[Connect] Challenge: {challenge[:50]}...")
+    print(f"[Connect] Challenge response: {challenge_response}")
     
     # Генерируем nonce
     nonce = random_hex(16)
+    print(f"[Connect] Nonce: {nonce}")
     
     # Подготавливаем данные для шифрования
     data = {
@@ -575,8 +590,16 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
         "k": project_id
     }
     
+    print(f"\n[Connect] {'='*60}")
+    print(f"[Connect] Подготовка данных для connect запроса:")
+    print(f"[Connect] Данные для шифрования: {json.dumps(data, indent=2)}")
+    
     # Шифруем данные
-    encrypted_blob = encrypt_with_master_key(json.dumps(data), MASTER_KEY)
+    data_json = json.dumps(data)
+    print(f"[Connect] JSON для шифрования: {data_json}")
+    encrypted_blob = encrypt_with_master_key(data_json, MASTER_KEY)
+    print(f"[Connect] Зашифрованный blob (первые 100 символов): {encrypted_blob[:100]}...")
+    print(f"[Connect] Размер blob: {len(encrypted_blob)} символов")
     
     # Отправляем запрос
     url = f"{SERVER_URL}/api/connect"
@@ -585,8 +608,14 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
         "project_id": project_id  # Передаем project_id для правильной расшифровки
     }
     
-    print(f"[Connect] Отправка запроса на {url}")
-    print(f"[Connect] Данные для шифрования: {json.dumps(data, indent=2)}")
+    print(f"[Connect] URL: {url}")
+    print(f"[Connect] Request data keys: {list(request_data.keys())}")
+    print(f"[Connect] Project ID: {project_id}")
+    if mtls_cert:
+        print(f"[Connect] mTLS сертификат: {mtls_cert[0] if isinstance(mtls_cert, tuple) else mtls_cert}")
+    else:
+        print(f"[Connect] ⚠ mTLS сертификат не используется")
+    print(f"[Connect] {'='*60}\n")
     
     try:
         # Используем User-Agent, похожий на Android клиент, чтобы пройти валидацию
@@ -594,39 +623,70 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
             "Content-Type": "application/json",
             "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 11; SM-G991B Build/RP1A.200720.012)"
         }
+        print(f"[Connect] Headers: {headers}")
         
         # Отключаем проверку SSL если нужно (для локального тестирования)
         verify_ssl = os.environ.get("VERIFY_SSL", "true").lower() == "true"
+        print(f"[Connect] SSL проверка: {'включена' if verify_ssl else 'отключена'}")
+        print(f"[Connect] Отправка POST запроса...")
+        
         try:
             response = requests.post(
                 url,
                 json=request_data,
                 headers=headers,
                 cert=mtls_cert,  # None если сертификаты не найдены
-                timeout=10,
+                timeout=30,
                 verify=verify_ssl
             )
         except requests.exceptions.SSLError as e:
             # Если SSL ошибка, пробуем без проверки (только для локального теста!)
             print(f"[Connect] ⚠ SSL ошибка: {e}")
+            print(f"[Connect] Детали SSL ошибки: {type(e).__name__}")
             print(f"[Connect] Пробуем без проверки SSL (только для теста)...")
             response = requests.post(
                 url,
                 json=request_data,
                 headers=headers,
                 cert=mtls_cert,
-                timeout=10,
+                timeout=30,
                 verify=False
             )
+        except requests.exceptions.RequestException as e:
+            print(f"[Connect] ❌ Ошибка запроса: {type(e).__name__}: {e}")
+            raise
         
+        print(f"\n[Connect] {'='*60}")
         print(f"[Connect] Статус ответа: {response.status_code}")
+        print(f"[Connect] Заголовки ответа: {dict(response.headers)}")
+        print(f"[Connect] Размер ответа: {len(response.text)} символов")
+        print(f"[Connect] Первые 200 символов ответа: {response.text[:200]}")
+        print(f"[Connect] {'='*60}\n")
         
         if response.status_code == 200:
-            # Расшифровываем ответ
-            decrypted_response = decrypt_with_master_key(response.text, MASTER_KEY)
-            result = json.loads(decrypted_response)
+            print(f"[Connect] ✓ Успешный ответ от сервера!")
+            print(f"[Connect] Попытка расшифровки ответа с master key...")
             
-            print(f"[Connect] Расшифрованный ответ: {json.dumps(result, indent=2)}")
+            # Расшифровываем ответ
+            try:
+                decrypted_response = decrypt_with_master_key(response.text, MASTER_KEY)
+                print(f"[Connect] ✓ Расшифровка успешна!")
+                print(f"[Connect] Расшифрованный ответ (raw): {decrypted_response}")
+                
+                result = json.loads(decrypted_response)
+                print(f"[Connect] Расшифрованный ответ (JSON): {json.dumps(result, indent=2)}")
+            except Exception as decrypt_error:
+                print(f"[Connect] ❌ Ошибка расшифровки: {type(decrypt_error).__name__}: {decrypt_error}")
+                print(f"[Connect] Пробуем расшифровать с project key...")
+                try:
+                    decrypted_response = decrypt_with_master_key(response.text, PROJECT_KEY)
+                    result = json.loads(decrypted_response)
+                    print(f"[Connect] ✓ Расшифровка с project key успешна!")
+                    print(f"[Connect] Расшифрованный ответ: {json.dumps(result, indent=2)}")
+                except Exception as e2:
+                    print(f"[Connect] ❌ Не удалось расшифровать ни с master key, ни с project key")
+                    print(f"[Connect] Ошибка: {e2}")
+                    return f"✗ Ошибка расшифровки ответа: {decrypt_error}"
             
             if "error" in result:
                 return f"Ошибка сервера: {result['error']}"
@@ -645,44 +705,63 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
             else:
                 return "Ошибка: Неверный формат ответа сервера"
         else:
-            print(f"[Connect] Ошибка сервера: {response.status_code}")
-            print(f"[Connect] Ответ (raw): {response.text}")
+            print(f"[Connect] ❌ Ошибка сервера: HTTP {response.status_code}")
+            print(f"[Connect] Полный ответ (raw): {response.text}")
+            print(f"[Connect] Content-Type: {response.headers.get('Content-Type', 'unknown')}")
             
             # Пытаемся расшифровать ошибку
             error_message = None
+            print(f"[Connect] Попытка обработки ошибки...")
+            print(f"[Connect] Content-Type: {response.headers.get('Content-Type', 'unknown')}")
+            print(f"[Connect] Длина ответа: {len(response.text)} символов")
+            
             try:
                 # Сначала пробуем как обычный JSON
+                print(f"[Connect] Попытка парсинга как JSON...")
                 error_json = json.loads(response.text)
+                print(f"[Connect] ✓ Успешно распарсен как JSON")
+                print(f"[Connect] JSON ключи: {list(error_json.keys())}")
                 if "error" in error_json:
                     error_message = error_json["error"]
+                    print(f"[Connect] Ошибка из JSON: {error_message}")
                     if "not found" in error_message.lower() or "не найден" in error_message.lower():
                         return "✗ Ключ лицензии не найден на сервере"
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as json_err:
+                print(f"[Connect] Не JSON формат, пробуем расшифровать...")
+                print(f"[Connect] JSON decode error: {json_err}")
                 # Если не JSON, пробуем расшифровать
                 decrypted = False
                 # Сначала пробуем с master key
                 try:
                     print(f"[Connect] Пытаемся расшифровать ответ с master key...")
                     decrypted_error = decrypt_with_master_key(response.text, MASTER_KEY)
-                    print(f"[Connect] ✓ Расшифровано с master key: {decrypted_error[:200]}")
+                    print(f"[Connect] ✓ Расшифровано с master key!")
+                    print(f"[Connect] Расшифрованный текст (первые 500 символов): {decrypted_error[:500]}")
                     error_json = json.loads(decrypted_error)
+                    print(f"[Connect] ✓ Успешно распарсен расшифрованный JSON")
+                    print(f"[Connect] JSON ключи: {list(error_json.keys())}")
                     decrypted = True
                 except Exception as e1:
-                    print(f"[Connect] Не удалось расшифровать с master key: {type(e1).__name__}")
+                    print(f"[Connect] ❌ Не удалось расшифровать с master key: {type(e1).__name__}: {e1}")
                     # Пробуем с project key (если отличается)
                     if PROJECT_KEY != MASTER_KEY:
                         try:
                             print(f"[Connect] Пытаемся расшифровать с project key...")
                             decrypted_error = decrypt_with_master_key(response.text, PROJECT_KEY)
-                            print(f"[Connect] ✓ Расшифровано с project key: {decrypted_error[:200]}")
+                            print(f"[Connect] ✓ Расшифровано с project key!")
+                            print(f"[Connect] Расшифрованный текст (первые 500 символов): {decrypted_error[:500]}")
                             error_json = json.loads(decrypted_error)
+                            print(f"[Connect] ✓ Успешно распарсен расшифрованный JSON")
                             decrypted = True
                         except Exception as e2:
-                            print(f"[Connect] Не удалось расшифровать с project key: {type(e2).__name__}")
+                            print(f"[Connect] ❌ Не удалось расшифровать с project key: {type(e2).__name__}: {e2}")
+                    else:
+                        print(f"[Connect] Project key совпадает с master key, пропускаем")
                 
                 if decrypted:
                     if "error" in error_json:
                         error_message = error_json["error"]
+                        print(f"[Connect] Ошибка из расшифрованного JSON: {error_message}")
                         if "not found" in error_message.lower() or "не найден" in error_message.lower():
                             return "✗ Ключ лицензии не найден на сервере"
                         if "rate limit" in error_message.lower() or "redis" in error_message.lower():
@@ -690,6 +769,9 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
                         if "certificate" in error_message.lower() or "mtls" in error_message.lower() or "client certificate" in error_message.lower():
                             return f"⚠ Требуется mTLS: {error_message}\n   (Сервер требует клиентский сертификат)"
                         return f"✗ Ошибка: {error_message}"
+                else:
+                    print(f"[Connect] ⚠ Не удалось расшифровать ответ, возвращаем raw текст")
+                    error_message = response.text[:500]
             
             # Формируем понятное сообщение об ошибке
             if response.status_code == 503:
@@ -726,31 +808,60 @@ def check_license(user_key: str, game_name: str) -> str:
     
     # Получаем mTLS сертификаты один раз для всех запросов
     # Автоматически получаем через API используя user_key (без username/password!)
+    print(f"\n[Инициализация] Получение mTLS сертификатов...")
+    print(f"[Инициализация] Project ID: {PROJECT_ID}")
+    print(f"[Инициализация] Client Name: {CLIENT_NAME}")
+    print(f"[Инициализация] User Key: {user_key[:20]}...")
+    
     mtls_cert = get_mtls_cert(PROJECT_ID, CLIENT_NAME, user_key)
     
+    if mtls_cert:
+        if isinstance(mtls_cert, tuple):
+            print(f"[Инициализация] ✓ mTLS сертификаты получены:")
+            print(f"[Инициализация]   Cert: {mtls_cert[0]}")
+            print(f"[Инициализация]   Key: {mtls_cert[1]}")
+        else:
+            print(f"[Инициализация] ✓ mTLS сертификат: {mtls_cert}")
+    else:
+        print(f"[Инициализация] ⚠ mTLS сертификаты не получены, запросы будут без mTLS")
+    
     # Шаг 1: Получаем challenge
+    print(f"\n{'='*60}")
     print("[Шаг 1] Получение challenge от сервера...")
+    print(f"{'='*60}")
     try:
         challenge, canary, actual_project_id = get_challenge(user_key, FINGERPRINT, PROJECT_ID, mtls_cert)
-        print(f"[Шаг 1] ✓ Challenge получен")
+        print(f"\n[Шаг 1] ✓ Challenge получен успешно!")
+        print(f"[Шаг 1] Challenge: {challenge[:50]}... (длина: {len(challenge)})")
+        print(f"[Шаг 1] Canary: {canary}")
+        print(f"[Шаг 1] Project ID: {actual_project_id}")
         print(f"[Шаг 1] ✓ Ключ найден на сервере!")
         # Используем project_id из ответа сервера
         project_id_to_use = actual_project_id
     except Exception as e:
         error_msg = str(e)
+        print(f"\n[Шаг 1] ❌ Ошибка: {error_msg}")
         if "не найден" in error_msg.lower() or "not found" in error_msg.lower():
             return f"✗ Ключ лицензии не найден на сервере"
         return f"Ошибка: Не удалось получить challenge от сервера: {e}"
     
     # Шаг 2: Отправляем connect запрос
-    print("\n[Шаг 2] Отправка connect запроса...")
+    print(f"\n{'='*60}")
+    print("[Шаг 2] Отправка connect запроса...")
+    print(f"{'='*60}")
     try:
         result = connect(user_key, challenge, canary, FINGERPRINT, game_name, project_id_to_use, mtls_cert)
+        print(f"\n[Шаг 2] Результат: {result[:100]}...")
+        
         # Если получили ошибку, но challenge был получен - ключ найден
         if not result.startswith("VALID") and ("403" in result or "Доступ запрещен" in result):
             return f"✓ Ключ найден на сервере!\n   Challenge получен успешно.\n   {result}"
         return result
     except Exception as e:
+        print(f"\n[Шаг 2] ❌ Исключение: {type(e).__name__}: {e}")
+        import traceback
+        print(f"[Шаг 2] Traceback:")
+        traceback.print_exc()
         # Даже если connect не прошел, challenge получен = ключ найден
         return f"✓ Ключ найден на сервере!\n   Challenge получен успешно.\n   Ошибка connect: {e}"
 

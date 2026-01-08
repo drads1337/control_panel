@@ -4,6 +4,8 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
 import { AuthProvider } from '@/app/providers/auth-provider'
+// Import Figtree font - Vite will process and copy the font files
+import '@fontsource-variable/figtree/index.css'
 import App from './App'
 import './index.css'
 
