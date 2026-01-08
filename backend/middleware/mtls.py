@@ -27,8 +27,9 @@ class MTLSValidator:
     
     def __init__(self):
         self.enabled = os.environ.get("MTLS_ENABLED", "false").lower() == "true"
-        default_bundle = os.environ.get("MTLS_CA_BUNDLE_PATH", "/etc/nginx/ssl/ca-bundle.pem")
-        self.ca_cert_path = os.environ.get("MTLS_CA_CERT_PATH", default_bundle)
+        # Single CA certificate for all clients (simplified configuration)
+        default_ca = os.environ.get("MTLS_CA_CERT_PATH", "/etc/nginx/ssl/ca-cert.pem")
+        self.ca_cert_path = default_ca
         self.required_cn = os.environ.get("MTLS_REQUIRED_CN")
         
         if self.enabled and not self.ca_cert_path:

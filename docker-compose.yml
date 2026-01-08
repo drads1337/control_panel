@@ -87,10 +87,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       PRODUCTION_CORS_ORIGINS: ${PRODUCTION_CORS_ORIGINS:-}
       
-      # mTLS (Mutual TLS)
+      # mTLS (Mutual TLS) - Single CA certificate for all clients (simplified configuration)
       MTLS_ENABLED: ${MTLS_ENABLED:-false}
-      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/app/nginx/ssl/ca-bundle.pem}
-      MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/app/nginx/ssl/ca-bundle.pem}
+      MTLS_CA_CERT_PATH: ${MTLS_CA_CERT_PATH:-/app/nginx/ssl/ca-cert.pem}
+      MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/app/nginx/ssl/ca-cert.pem}
       MTLS_PROJECT_SSL_DIR: ${MTLS_PROJECT_SSL_DIR:-/app/nginx/ssl/projects}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
       MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-false}
