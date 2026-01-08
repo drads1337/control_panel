@@ -190,16 +190,17 @@ def _get_cert_via_api(project_id: str, client_name: str, user_key: str, key_path
             backend=default_backend()
         )
         
-        # Сохраняем приватный ключ
+        # Сохраняем приватный ключ в RSA формате (TraditionalOpenSSL)
+        # RSA формат лучше работает с libcurl на Android, особенно с VerifyPeer=false
         pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,  # RSA format instead of PKCS#8
             encryption_algorithm=serialization.NoEncryption()
         )
         with open(key_path, "wb") as f:
             f.write(pem)
         os.chmod(key_path, 0o600)
-        print(f"[mTLS] ✓ Приватный ключ создан через cryptography")
+        print(f"[mTLS] ✓ Приватный ключ создан через cryptography (RSA format)")
     
     # Генерируем CSR
     # NOTE: With single CA, CN can be any value - no project_id prefix required
