@@ -158,26 +158,36 @@ class MTLSValidator:
         and spoofing mTLS headers. Only requests from configured trusted proxy IPs
         (e.g., Nginx) are allowed.
         
-        Returns:
-            True if request comes from trusted proxy, False otherwise
+        Supports exact IPs and CIDR entries (e.g., 172.18.0.0/16).
         """
+        import ipaddress
+
         client_ip = request.remote_addr
-        
-
-        if client_ip in Config.TRUSTED_PROXY_IPS:
-            return True
-        
-
-
-
         real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
 
+        trusted_entries = [
+            entry.strip() for entry in str(Config.TRUSTED_PROXY_IPS).split(",") if entry.strip()
+        ]
 
-
-            if client_ip in Config.TRUSTED_PROXY_IPS:
+        def _ip_in_entry(ip: str, entry: str) -> bool:
+            if entry == ip:
                 return True
-        
+            if "/" in entry:
+                try:
+                    return ipaddress.ip_address(ip) in ipaddress.ip_network(entry, strict=False)
+                except ValueError:
+                    return False
+            return False
+
+        for entry in trusted_entries:
+            if _ip_in_entry(client_ip, entry):
+                return True
+
+        if real_ip:
+            for entry in trusted_entries:
+                if _ip_in_entry(client_ip, entry):
+                    return True
+
         return False
     
     def _extract_cn_from_dn(self, dn: str) -> Optional[str]:
@@ -274,7 +284,7 @@ def require_mtls(f):
                     extra={
                         "endpoint": request.endpoint,
                         "path": request.path,
-                        "ip": request.remote_addr,  
+                        "ip": request.remote_addr,
                         "error": error_msg
                     }
                 )
