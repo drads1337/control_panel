@@ -1,0 +1,63 @@
+# Команды curl для создания проекта с project code
+# Выполняйте команды по порядку на сервере
+# Замените YOUR_SERVER_URL на адрес вашего сервера (например: https://example.com или http://localhost:5000)
+
+# ============================================
+# ШАГ 1: Логин и получение cookies
+# ============================================
+# Сохраняет cookies в файл /tmp/panel_cookies.txt
+
+curl -c /tmp/panel_cookies.txt -X POST "ovrin.xyz/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "drads123", "password": "drads123"}'
+
+# ============================================
+# ШАГ 2: Получение CSRF токена
+# ============================================
+# Выполните эту команду и скопируйте значение csrf_token из ответа
+
+curl -b /tmp/panel_cookies.txt -X GET "YOUR_SERVER_URL/api/auth/csrf-token" \
+  -H "Content-Type: application/json"
+
+# Скопируйте значение csrf_token из ответа (например: "abc123-def456-...")
+# Замените CSRF_TOKEN_HERE в следующих командах на это значение
+
+# ============================================
+# ШАГ 3: Получение project invite code
+# ============================================
+# Замените CSRF_TOKEN_HERE на токен из шага 2
+
+curl -b /tmp/panel_cookies.txt -X GET "YOUR_SERVER_URL/api/project-codes/latest" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRFToken: CSRF_TOKEN_HERE"
+
+# Если код не найден (null), создайте новый код командой ниже:
+
+curl -b /tmp/panel_cookies.txt -X POST "YOUR_SERVER_URL/api/project-codes" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRFToken: CSRF_TOKEN_HERE" \
+  -d '{"expires_in_days": 30}'
+
+# Скопируйте значение code из ответа (например: "ABC123XYZ")
+# Замените INVITE_CODE_HERE в следующей команде на это значение
+
+# ============================================
+# ШАГ 4: Регистрация пользователя с project code
+# ============================================
+# Замените INVITE_CODE_HERE на код из шага 3
+
+curl -X POST "YOUR_SERVER_URL/api/auth/register-with-invite" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "bankai123",
+    "password": "bankai",
+    "invite_code": "INVITE_CODE_HERE",
+    "project_name": "bankain"
+  }'
+
+# ============================================
+# ГОТОВО!
+# ============================================
+# Проект "bankain" создан
+# Пользователь: bankai123
+# Пароль: bankai
