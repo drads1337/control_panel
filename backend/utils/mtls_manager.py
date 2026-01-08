@@ -117,7 +117,6 @@ class MTLSProjectManager:
         ca_dir = project_dir / "ca"
         ca_key = ca_dir / "ca-key.pem"
         ca_cert = ca_dir / "ca-cert.pem"
-        client_cert = client_dir / "client-cert.pem"
 
         normalized_csr = self._normalize_pem(csr_pem)
 
@@ -129,10 +128,13 @@ class MTLSProjectManager:
                 f"CSR CN must start with '{expected_prefix}' (got '{csr_cn}')"
             )
 
-        # Use temporary files for CSR and extfile to avoid permission issues
+        # Use temporary files for CSR, certificate, and extfile to avoid permission issues
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csr", delete=False) as csr_file:
             csr_file.write(normalized_csr)
             csr_file_path = csr_file.name
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as cert_file:
+            cert_file_path = cert_file.name
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as extfile:
             extfile.write(
@@ -141,9 +143,6 @@ class MTLSProjectManager:
                 "extendedKeyUsage = clientAuth\n"
             )
             extfile_path = extfile.name
-
-        # Ensure client_dir exists for certificate output
-        client_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             self._run(
@@ -161,7 +160,7 @@ class MTLSProjectManager:
                     str(ca_key),
                     "-CAcreateserial",
                     "-out",
-                    str(client_cert),
+                    cert_file_path,
                     "-extensions",
                     "v3_req",
                     "-extfile",
@@ -169,6 +168,20 @@ class MTLSProjectManager:
                 ],
                 "sign client CSR",
             )
+            
+            # Read the signed certificate from temporary file
+            with open(cert_file_path, "r") as f:
+                cert_pem = f.read()
+            
+            # Try to save a copy to client_dir if possible (for reference, but don't fail if it doesn't work)
+            try:
+                client_dir.mkdir(parents=True, exist_ok=True)
+                client_cert = client_dir / "client-cert.pem"
+                client_cert.write_text(cert_pem)
+                os.chmod(client_cert, 0o644)
+            except (OSError, PermissionError):
+                # Ignore permission errors when saving to client_dir - it's optional
+                pass
         finally:
             # Clean up temporary files
             try:
@@ -176,11 +189,14 @@ class MTLSProjectManager:
             except OSError:
                 pass
             try:
+                os.unlink(cert_file_path)
+            except OSError:
+                pass
+            try:
                 os.unlink(extfile_path)
             except OSError:
                 pass
 
-        cert_pem = client_cert.read_text()
         return cert_pem, ca_cert_pem, self._fingerprint(cert_pem)
 
     def verify_certificate_for_project(
