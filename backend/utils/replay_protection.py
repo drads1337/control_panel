@@ -1,184 +1,190 @@
 """
-Replay Protection Utility
-Prevents replay attacks by tracking used nonces and response IDs in Redis
+Replay Protection Module
+Prevents replay attacks by tracking used nonces and response IDs.
+
+SECURITY FEATURES:
+1. Nonce tracking - each nonce can only be used once
+2. Response ID tracking - prevents response replay
+3. Time-based expiration - old entries automatically expire
+4. Per-user and per-project isolation
 """
 
 import logging
-from typing import Optional
+import time
+from typing import Tuple, Optional
 
 from ..config.config import Config
 
 logger = logging.getLogger(__name__)
 
+# TTL for nonce tracking (seconds)
+NONCE_TTL = int(Config.NONCE_TTL) if hasattr(Config, 'NONCE_TTL') else 300
+RESPONSE_ID_TTL = 600  # 10 minutes for response IDs
 
-class ReplayProtection:
+
+def check_nonce_replay(nonce: str, user_key: str) -> Tuple[bool, str]:
     """
-    Handles replay protection for requests and responses.
+    Check if nonce has been used before (replay attack).
     
-    SECURITY: This class prevents replay attacks by:
-    1. Tracking used nonces in requests (prevents request replay)
-    2. Tracking used response_ids in responses (prevents response replay)
-    3. Using Redis with TTL for automatic cleanup
+    SECURITY: Each nonce should only be used once per user_key.
+    If nonce was seen before, it's a potential replay attack.
+    
+    Args:
+        nonce: Request nonce
+        user_key: User key
+        
+    Returns:
+        Tuple of (is_replay, error_message)
     """
+    if not nonce:
+        # No nonce provided - not a replay but could be legacy client
+        return False, ""
     
-    def __init__(self):
-        self.nonce_ttl = 300  # 5 minutes
-        self.response_id_ttl = 3600  # 1 hour (responses can be cached longer)
+    try:
+        from .redis_client import get_redis_client
+        
+        redis_client = get_redis_client()
+        
+        # Key format: nonce:{user_key_prefix}:{nonce}
+        # Use prefix of user_key to avoid very long keys
+        user_key_prefix = user_key[:16] if len(user_key) > 16 else user_key
+        nonce_key = f"nonce:{user_key_prefix}:{nonce}"
+        
+        # Try to set the nonce with NX (only if not exists)
+        # Returns True if set successfully (nonce is new), False if already exists
+        was_set = redis_client.set(nonce_key, "1", nx=True, ex=NONCE_TTL)
+        
+        if not was_set:
+            # Nonce already exists - replay attack!
+            logger.warning(
+                f"NONCE_REPLAY_DETECTED user_key={user_key_prefix}... nonce={nonce[:16]}..."
+            )
+            return True, "Request replay detected: nonce already used"
+        
+        # Nonce is new, request is valid
+        return False, ""
+        
+    except Exception as e:
+        logger.error(f"Nonce replay check error: {e}")
+        # Fail open for availability, but log the error
+        return False, ""
+
+
+def mark_response_id_used(response_id: str, project_id: Optional[int] = None) -> bool:
+    """
+    Mark response ID as used to prevent response replay.
     
-    def _get_redis_client(self):
-        """Get Redis client for replay protection"""
-        try:
-            import redis
-            from ..utils.redis_client import get_redis_wrapper
-            
-            redis_wrapper = get_redis_wrapper()
-            if redis_wrapper.is_available():
-                return redis_wrapper
-            return None
-        except Exception as e:
-            logger.warning(f"Failed to get Redis client for replay protection: {e}")
-            return None
+    SECURITY: Each response ID is unique and can only be sent once.
+    This prevents attackers from replaying captured responses.
     
-    def check_nonce_replay(self, nonce: str, user_key: Optional[str] = None) -> tuple[bool, str]:
-        """
-        Check if nonce has been used before (replay attack detection).
+    Args:
+        response_id: Unique response ID
+        project_id: Optional project ID for isolation
         
-        SECURITY: This prevents attackers from reusing captured requests.
-        Each nonce can only be used once within the TTL window.
-        
-        Args:
-            nonce: Nonce value from request
-            user_key: Optional user key for better isolation
-            
-        Returns:
-            Tuple of (is_replay, error_message)
-            - is_replay=True means this is a replay attack
-            - is_replay=False means nonce is valid
-        """
-        if not nonce:
-            return False, ""  # Nonce is optional, skip if not provided
-        
-        redis_wrapper = self._get_redis_client()
-        if not redis_wrapper:
-            # If Redis is unavailable, log warning but allow request
-            # (fail-open to prevent DoS if Redis is down)
-            logger.warning("Redis unavailable for nonce replay check, allowing request")
-            return False, ""
-        
-        try:
-            # Use user_key for better isolation if available
-            if user_key:
-                key = f"nonce:{user_key}:{nonce}"
-            else:
-                key = f"nonce:{nonce}"
-            
-            # Check if nonce exists
-            exists = redis_wrapper.exists(key)
-            if exists:
-                logger.warning(f"REPLAY_ATTACK_DETECTED: Nonce {nonce[:16]}... already used")
-                return True, "Request replay detected: nonce already used"
-            
-            # Store nonce with TTL
-            redis_wrapper.setex(key, self.nonce_ttl, "1")
-            return False, ""
-            
-        except Exception as e:
-            logger.error(f"Error checking nonce replay: {e}")
-            # Fail-open: if Redis fails, allow request to prevent DoS
-            return False, ""
+    Returns:
+        True if marked successfully
+    """
+    if not response_id:
+        return False
     
-    def check_response_id_replay(self, response_id: str, project_id: Optional[int] = None) -> tuple[bool, str]:
-        """
-        Check if response_id has been used before (response replay detection).
+    try:
+        from .redis_client import get_redis_client
         
-        SECURITY: This prevents attackers from reusing captured responses.
-        Each response_id can only be used once within the TTL window.
+        redis_client = get_redis_client()
         
-        Args:
-            response_id: Response ID from server response
-            project_id: Optional project ID for better isolation
-            
-        Returns:
-            Tuple of (is_replay, error_message)
-            - is_replay=True means this is a replay attack
-            - is_replay=False means response_id is valid
-        """
-        if not response_id:
-            return False, ""  # Response ID is optional for backward compatibility
+        # Key format: response_id:{project_id}:{response_id}
+        project_prefix = str(project_id) if project_id else "global"
+        response_key = f"response_id:{project_prefix}:{response_id}"
         
-        redis_wrapper = self._get_redis_client()
-        if not redis_wrapper:
-            # If Redis is unavailable, log warning but allow response
-            logger.warning("Redis unavailable for response_id replay check, allowing response")
-            return False, ""
+        # Set with expiration
+        redis_client.setex(response_key, RESPONSE_ID_TTL, str(int(time.time())))
         
-        try:
-            # Use project_id for better isolation if available
-            if project_id:
-                key = f"response_id:{project_id}:{response_id}"
-            else:
-                key = f"response_id:{response_id}"
-            
-            # Check if response_id exists
-            exists = redis_wrapper.exists(key)
-            if exists:
-                logger.warning(f"RESPONSE_REPLAY_DETECTED: Response ID {response_id[:16]}... already used")
-                return True, "Response replay detected: response_id already used"
-            
-            # Store response_id with TTL
-            redis_wrapper.setex(key, self.response_id_ttl, "1")
-            return False, ""
-            
-        except Exception as e:
-            logger.error(f"Error checking response_id replay: {e}")
-            # Fail-open: if Redis fails, allow response to prevent DoS
-            return False, ""
+        return True
+        
+    except Exception as e:
+        logger.error(f"Response ID marking error: {e}")
+        return False
+
+
+def verify_response_id_fresh(response_id: str, project_id: Optional[int] = None) -> Tuple[bool, str]:
+    """
+    Verify that response ID hasn't been seen before.
     
-    def mark_response_id_used(self, response_id: str, project_id: Optional[int] = None) -> None:
-        """
-        Mark response_id as used (called when response is sent to client).
+    Args:
+        response_id: Response ID to verify
+        project_id: Optional project ID
         
-        This is a convenience method that does the same as check_response_id_replay
-        but doesn't return a boolean. Use this when you want to proactively mark
-        a response_id as used.
+    Returns:
+        Tuple of (is_fresh, error_message)
+    """
+    if not response_id:
+        return True, ""
+    
+    try:
+        from .redis_client import get_redis_client
         
-        Args:
-            response_id: Response ID to mark as used
-            project_id: Optional project ID for better isolation
-        """
-        if not response_id:
-            return
+        redis_client = get_redis_client()
         
-        redis_wrapper = self._get_redis_client()
-        if not redis_wrapper:
-            return
+        project_prefix = str(project_id) if project_id else "global"
+        response_key = f"response_id:{project_prefix}:{response_id}"
         
-        try:
-            if project_id:
-                key = f"response_id:{project_id}:{response_id}"
-            else:
-                key = f"response_id:{response_id}"
-            
-            redis_wrapper.setex(key, self.response_id_ttl, "1")
-        except Exception as e:
-            logger.error(f"Error marking response_id as used: {e}")
+        exists = redis_client.exists(response_key)
+        
+        if exists:
+            logger.warning(
+                f"RESPONSE_REPLAY_DETECTED project={project_prefix} response_id={response_id[:16]}..."
+            )
+            return False, "Response replay detected"
+        
+        return True, ""
+        
+    except Exception as e:
+        logger.error(f"Response ID verification error: {e}")
+        return True, ""
 
 
-# Global instance
-_replay_protection = ReplayProtection()
-
-
-def check_nonce_replay(nonce: str, user_key: Optional[str] = None) -> tuple[bool, str]:
-    """Check if nonce has been used before (replay attack detection)"""
-    return _replay_protection.check_nonce_replay(nonce, user_key)
-
-
-def check_response_id_replay(response_id: str, project_id: Optional[int] = None) -> tuple[bool, str]:
-    """Check if response_id has been used before (response replay detection)"""
-    return _replay_protection.check_response_id_replay(response_id, project_id)
-
-
-def mark_response_id_used(response_id: str, project_id: Optional[int] = None) -> None:
-    """Mark response_id as used"""
-    _replay_protection.mark_response_id_used(response_id, project_id)
-
+def get_replay_protection_stats(project_id: Optional[int] = None) -> dict:
+    """
+    Get replay protection statistics for monitoring.
+    
+    Args:
+        project_id: Optional project ID to filter by
+        
+    Returns:
+        Dictionary with statistics
+    """
+    try:
+        from .redis_client import get_redis_client
+        
+        redis_client = get_redis_client()
+        
+        # Count nonce keys
+        nonce_pattern = f"nonce:*"
+        nonce_count = 0
+        for _ in redis_client.scan_iter(match=nonce_pattern, count=100):
+            nonce_count += 1
+            if nonce_count >= 1000:  # Limit for performance
+                break
+        
+        # Count response ID keys
+        if project_id:
+            response_pattern = f"response_id:{project_id}:*"
+        else:
+            response_pattern = "response_id:*"
+        
+        response_count = 0
+        for _ in redis_client.scan_iter(match=response_pattern, count=100):
+            response_count += 1
+            if response_count >= 1000:
+                break
+        
+        return {
+            "nonce_entries": nonce_count,
+            "response_id_entries": response_count,
+            "nonce_ttl": NONCE_TTL,
+            "response_id_ttl": RESPONSE_ID_TTL
+        }
+        
+    except Exception as e:
+        logger.error(f"Replay protection stats error: {e}")
+        return {"error": str(e)}

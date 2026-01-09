@@ -14,6 +14,7 @@ from ..routes.cache_management import cache_bp
 from ..routes.changelog import changelog_bp
 from ..routes.chat import chat_bp
 from ..routes.connect.connect import connect_bp
+from ..routes.connect.secure_key_exchange import secure_key_bp
 from ..routes.dashboard import dashboard_bp
 from ..routes.dynamic_config import dynamic_config_bp
 from ..routes.files import files_bp
@@ -48,6 +49,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(auth_bp, url_prefix=f"{API_VERSION}/auth")
     app.register_blueprint(admin_bp, url_prefix=API_VERSION)
     app.register_blueprint(connect_bp, url_prefix=API_VERSION)
+    app.register_blueprint(secure_key_bp, url_prefix=API_VERSION)
     app.register_blueprint(projects_bp, url_prefix=API_VERSION)
     app.register_blueprint(dashboard_bp, url_prefix=f"{API_VERSION}/dashboard")
     app.register_blueprint(heartbeat_bp, url_prefix=API_VERSION)

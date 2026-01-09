@@ -13,6 +13,7 @@ from ...models.core import User
 from ...services.keys.key_validator import KeyValidator
 from ...services.validation import request_validation_pipeline
 from ...utils.service_exceptions import ValidationError, NotFoundError
+from ...utils.secure_key_exchange import get_cert_device_binding
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .decryption_service import DecryptionService
@@ -198,6 +199,62 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
+            # SECURITY: Certificate-Device binding verification (if mTLS is enabled)
+            # This prevents certificate sharing across different devices
+            try:
+                from flask import request as flask_request
+                from ...middleware.mtls import is_mtls_enabled, _mtls_validator
+                
+                if is_mtls_enabled():
+                    cert_pem = _mtls_validator.get_client_certificate_pem()
+                    if cert_pem:
+                        from ...utils.secure_key_exchange import get_secure_key_exchange
+                        key_exchange = get_secure_key_exchange()
+                        cert_device = get_cert_device_binding()
+                        
+                        cert_fingerprint = key_exchange.get_certificate_fingerprint(cert_pem)
+                        device_fingerprint = fields.get("fingerprint")
+                        
+                        # Verify certificate-device binding
+                        binding_valid, binding_error = cert_device.verify_certificate_device(
+                            cert_fingerprint=cert_fingerprint,
+                            device_fingerprint=device_fingerprint,
+                            project_id=project_id
+                        )
+                        
+                        if not binding_valid:
+                            logger.warning(
+                                f"CERT_DEVICE_BINDING_FAILED ip={ip} user_key={user_key} "
+                                f"cert={cert_fingerprint[:16]}... device={device_fingerprint[:16]}..."
+                            )
+                            self._log_user_activity(
+                                key_obj, project_id, "api_connect_error", 
+                                f"user_key={user_key}, reason=CERT_DEVICE_MISMATCH", ip
+                            )
+                            error_response = self.response_builder.build_error_response(
+                                "Certificate bound to different device", project_id
+                            )
+                            encrypted_response = self.response_builder.encrypt_response(
+                                error_response,
+                                used_global_key=used_global_key,
+                                project_id=project_id,
+                                use_legacy=True,
+                            )
+                            return encrypted_response, 403
+                        
+                        # Register binding if new
+                        cert_device.register_certificate_device(
+                            cert_fingerprint=cert_fingerprint,
+                            device_fingerprint=device_fingerprint,
+                            project_id=project_id,
+                            user_key=user_key
+                        )
+                        logger.debug(
+                            f"CERT_DEVICE_BINDING_OK ip={ip} cert={cert_fingerprint[:16]}..."
+                        )
+            except Exception as cert_bind_error:
+                # Don't fail connection on binding check errors, but log
+                logger.warning(f"Certificate device binding check error: {cert_bind_error}")
 
             is_blocked, block_reason = self.security_checker.enhanced_fingerprint_security_check(
                 fields.get("fingerprint"), ip, user_agent, user_key, project_id
