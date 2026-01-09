@@ -42,11 +42,26 @@ class MTLSValidator:
     def get_client_certificate_pem(self) -> Optional[str]:
         """
         Return PEM client certificate from trusted WSGI vars or headers.
+        Handles escaped certificates from nginx (ssl_client_escaped_cert).
         """
         cert = request.environ.get("SSL_CLIENT_CERT") or request.environ.get("HTTP_X_SSL_CLIENT_CERT")
         if not cert:
             return None
-        return cert.replace("\\n", "\n").strip()
+        
+        # Normalize PEM: handle escape sequences from nginx
+        # nginx's ssl_client_escaped_cert may contain \n, \\, etc.
+        normalized = cert.replace("\\n", "\n")
+        normalized = normalized.replace("\\\\", "\\")  # Handle double backslashes
+        normalized = normalized.strip()
+        
+        # Ensure proper PEM format
+        if not normalized.startswith("-----BEGIN"):
+            # Try to find BEGIN marker
+            begin_idx = normalized.find("-----BEGIN")
+            if begin_idx > 0:
+                normalized = normalized[begin_idx:]
+        
+        return normalized
     
     def validate_client_certificate(self) -> tuple[bool, Optional[str]]:
         """
@@ -165,9 +180,14 @@ class MTLSValidator:
         client_ip = request.remote_addr
         real_ip = request.headers.get("X-Real-IP")
 
-        trusted_entries = [
-            entry.strip() for entry in str(Config.TRUSTED_PROXY_IPS).split(",") if entry.strip()
-        ]
+        # Config.TRUSTED_PROXY_IPS is already a list, not a string
+        if isinstance(Config.TRUSTED_PROXY_IPS, list):
+            trusted_entries = [entry.strip() for entry in Config.TRUSTED_PROXY_IPS if entry.strip()]
+        else:
+            # Fallback for string format (comma-separated)
+            trusted_entries = [
+                entry.strip() for entry in str(Config.TRUSTED_PROXY_IPS).split(",") if entry.strip()
+            ]
 
         def _ip_in_entry(ip: str, entry: str) -> bool:
             if entry == ip:

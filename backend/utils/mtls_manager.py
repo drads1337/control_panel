@@ -234,7 +234,35 @@ class MTLSProjectManager:
         return cert.fingerprint(hashes.SHA256()).hex().upper()
 
     def _normalize_pem(self, pem: str) -> str:
-        cleaned = pem.strip().replace("\\n", "\n")
+        """
+        Normalize PEM certificate string.
+        Handles escape sequences from nginx headers and various formats.
+        """
+        if not pem:
+            return ""
+        
+        # Handle escape sequences from nginx (ssl_client_escaped_cert)
+        cleaned = pem.replace("\\n", "\n")
+        cleaned = cleaned.replace("\\\\", "\\")  # Handle double backslashes
+        cleaned = cleaned.strip()
+        
+        # Remove any leading/trailing whitespace and ensure proper format
+        # Find BEGIN marker if certificate doesn't start with it
+        if not cleaned.startswith("-----BEGIN"):
+            begin_idx = cleaned.find("-----BEGIN")
+            if begin_idx > 0:
+                cleaned = cleaned[begin_idx:]
+            elif begin_idx == -1:
+                # No BEGIN marker found, might be URL encoded or other format
+                # Try to decode if it looks like it might be encoded
+                try:
+                    import urllib.parse
+                    decoded = urllib.parse.unquote(cleaned)
+                    if "-----BEGIN" in decoded:
+                        cleaned = decoded
+                except:
+                    pass
+        
         return cleaned
 
     def _extract_cn(self, cert: x509.Certificate) -> Optional[str]:

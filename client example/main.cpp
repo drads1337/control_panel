@@ -1541,6 +1541,94 @@ private:
         return cleaned;
     }
 
+    /**
+     * Validate user key format before sending to server
+     * This prevents sending invalid keys and provides early error feedback
+     * 
+     * @param userKey The key to validate
+     * @return Empty string if valid, error message if invalid
+     */
+    static std::string validateUserKeyFormat(const std::string& userKey) {
+        // Check if key is empty
+        if (userKey.empty()) {
+            return "Error: License key cannot be empty";
+        }
+
+        // Check minimum length (at least 5 characters)
+        if (userKey.length() < 5) {
+            return "Error: License key is too short (minimum 5 characters)";
+        }
+
+        // Check maximum length (reasonable limit, e.g., 256 characters)
+        if (userKey.length() > 256) {
+            return "Error: License key is too long (maximum 256 characters)";
+        }
+
+        // Check for required dash separator (typical key format: XXXX-XXXX-XXXX)
+        if (userKey.find('-') == std::string::npos) {
+            return "Error: Invalid license key format (missing separator)";
+        }
+
+        // Check for suspicious strings that might indicate error messages or debug data
+        std::string lowerKey = userKey;
+        std::transform(lowerKey.begin(), lowerKey.end(), lowerKey.begin(), ::tolower);
+        
+        const char* suspicious_indicators[] = {
+            "error",
+            "exception",
+            "traceback",
+            "null}",
+            "timestamp",
+            "level",
+            "undefined",
+            "null",
+            "none",
+            "false",
+            "true"
+        };
+        
+        for (size_t i = 0; i < sizeof(suspicious_indicators) / sizeof(suspicious_indicators[0]); i++) {
+            if (lowerKey.find(suspicious_indicators[i]) != std::string::npos) {
+                return "Error: Invalid license key format (contains invalid data)";
+            }
+        }
+
+        // Check for valid characters (alphanumeric, dash, underscore)
+        // License keys typically contain: letters, numbers, dashes, and sometimes underscores
+        for (char c : userKey) {
+            if (!std::isalnum(c) && c != '-' && c != '_') {
+                return "Error: Invalid license key format (contains invalid characters)";
+            }
+        }
+
+        // Check that key doesn't consist only of dashes or underscores
+        bool has_alnum = false;
+        for (char c : userKey) {
+            if (std::isalnum(c)) {
+                has_alnum = true;
+                break;
+            }
+        }
+        if (!has_alnum) {
+            return "Error: Invalid license key format (must contain letters or numbers)";
+        }
+
+        // Additional format check: key should have at least one alphanumeric segment between dashes
+        // Example valid: "ABC-123-DEF", "TEST-KEY-123"
+        // Example invalid: "---", "ABC--DEF", "-ABC-"
+        if (userKey[0] == '-' || userKey[userKey.length() - 1] == '-') {
+            return "Error: Invalid license key format (cannot start or end with separator)";
+        }
+
+        // Check for consecutive separators
+        if (userKey.find("--") != std::string::npos || userKey.find("__") != std::string::npos) {
+            return "Error: Invalid license key format (consecutive separators not allowed)";
+        }
+
+        // All checks passed
+        return "";
+    }
+
     static std::string getAndroidId(JNIEnv* env, jobject context) {
         return jniStringToString(env, GetAndroidID(env, context), "unknown-device");
     }
@@ -1559,16 +1647,20 @@ public:
             return "Error: License key cannot be empty";
         }
 
+        // Clean and trim the key
         std::string cleanedKey = trimAndCleanKey(userKey);
         if (cleanedKey.empty()) {
             return "Error: License key cannot be empty";
         }
 
-        if (cleanedKey.length() < 5 || cleanedKey.find('-') == std::string::npos) {
-            return "Error: Invalid license key format";
+        // Validate key format before sending to server
+        std::string validationError = validateUserKeyFormat(cleanedKey);
+        if (!validationError.empty()) {
+            LOGI("CheckLicense: Key validation failed - %s", validationError.c_str());
+            return validationError;
         }
 
-        LOGI("CheckLicense: START - user_key=%s", cleanedKey.c_str());
+        LOGI("CheckLicense: START - user_key=%s (validated)", cleanedKey.c_str());
         
         std::string androidId = getAndroidId(env, context);
         std::string deviceModel = getDeviceModel(env);

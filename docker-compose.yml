@@ -93,8 +93,8 @@ services:
       MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/app/nginx/ssl/ca-cert.pem}
       MTLS_PROJECT_SSL_DIR: ${MTLS_PROJECT_SSL_DIR:-/app/nginx/ssl/projects}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
-      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-false}
-      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.18.0.0/16,127.0.0.1,::1}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-false}  # Set to false to allow header-based mTLS from nginx
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.18.0.0/16,127.0.0.1,::1}  # Docker network range covers all nginx IPs
       
       # Celery
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@redis:6379/1
@@ -151,7 +151,7 @@ services:
       MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/app/nginx/ssl/ca-bundle.pem}
       MTLS_PROJECT_SSL_DIR: ${MTLS_PROJECT_SSL_DIR:-/app/nginx/ssl/projects}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
-      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-false}  # Set to false to allow header-based mTLS from nginx
     volumes:
       - ./backend:/app/backend
       - ./uploads:/app/uploads
@@ -192,7 +192,7 @@ services:
       MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/app/nginx/ssl/ca-bundle.pem}
       MTLS_PROJECT_SSL_DIR: ${MTLS_PROJECT_SSL_DIR:-/app/nginx/ssl/projects}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
-      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-false}  # Set to false to allow header-based mTLS from nginx
     volumes:
       - ./backend:/app/backend
       - ./uploads:/app/uploads
@@ -233,7 +233,7 @@ services:
       MTLS_CA_BUNDLE_PATH: ${MTLS_CA_BUNDLE_PATH:-/app/nginx/ssl/ca-bundle.pem}
       MTLS_PROJECT_SSL_DIR: ${MTLS_PROJECT_SSL_DIR:-/app/nginx/ssl/projects}
       MTLS_REQUIRED_CN: ${MTLS_REQUIRED_CN:-}
-      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-true}
+      MTLS_REQUIRE_WSGI_VARS: ${MTLS_REQUIRE_WSGI_VARS:-false}  # Set to false to allow header-based mTLS from nginx
     volumes:
       - ./backend:/app/backend
       - ./uploads:/app/uploads

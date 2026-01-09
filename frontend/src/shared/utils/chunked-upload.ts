@@ -147,8 +147,12 @@ export async function uploadFileInChunks(
       finalizeFormData.append(key, String(value));
     });
 
-    const { getCsrfHeaders } = await import('@/shared/lib/csrf');
+    // Refresh CSRF token before finalize to ensure it's valid
+    // (token might have expired during long uploads)
+    const { prefetchCsrfToken, getCsrfHeaders } = await import('@/shared/lib/csrf');
+    await prefetchCsrfToken(); // Clear cache and fetch fresh token
     const csrfHeaders = await getCsrfHeaders();
+    
     // Use finalize endpoint (e.g., /api/files/product-files/extra/finalize)
     const finalizeUrl = getApiUrl(endpoint.includes('/finalize') ? endpoint : `${endpoint}/finalize`);
     
@@ -163,6 +167,15 @@ export async function uploadFileInChunks(
 
     if (!finalizeResponse.ok) {
       const errorData = await finalizeResponse.json().catch(() => ({ error: 'Finalization failed' }));
+      
+      // If it's an authentication error, provide more helpful message
+      if (finalizeResponse.status === 401) {
+        return {
+          success: false,
+          error: errorData.error || 'Authentication failed. Please try logging in again.',
+        };
+      }
+      
       return {
         success: false,
         error: errorData.error || 'Failed to finalize chunked upload',

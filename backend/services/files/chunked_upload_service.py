@@ -55,6 +55,41 @@ class ChunkedUploadService:
         chunk_path = os.path.join(root_path, upload_folder, self.chunk_storage_base, upload_id)
         return chunk_path
 
+    def _get_chunks_base_path(self) -> str:
+        """Get base path for chunks directory"""
+        root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+        chunks_base = os.path.join(root_path, upload_folder, self.chunk_storage_base)
+        return chunks_base
+
+    def _ensure_chunks_directory(self) -> Tuple[bool, Optional[str]]:
+        """Ensure the chunks base directory exists with proper permissions"""
+        try:
+            root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+            uploads_base = os.path.join(root_path, upload_folder)
+            chunks_base = self._get_chunks_base_path()
+            
+            # First ensure the uploads base directory exists
+            os.makedirs(uploads_base, mode=0o755, exist_ok=True)
+            
+            # Then ensure the chunks directory exists
+            os.makedirs(chunks_base, mode=0o755, exist_ok=True)
+            
+            # Verify we can write to it
+            test_file = os.path.join(chunks_base, ".test_write")
+            try:
+                with open(test_file, "w") as f:
+                    f.write("test")
+                os.remove(test_file)
+            except Exception as e:
+                return False, f"Cannot write to chunks directory: {str(e)}"
+            return True, None
+        except PermissionError as e:
+            return False, f"Permission denied creating chunks directory: {str(e)}"
+        except Exception as e:
+            return False, f"Error creating chunks directory: {str(e)}"
+
     def _get_chunk_metadata_key(self, upload_id: str) -> str:
         """Get Redis key for chunk metadata"""
         return f"chunk_upload:{upload_id}"
@@ -81,8 +116,14 @@ class ChunkedUploadService:
             Tuple of (success, error_message)
         """
         try:
+            # Ensure chunks base directory exists first
+            success, error = self._ensure_chunks_directory()
+            if not success:
+                return False, error
+
             chunk_path = self._get_chunk_storage_path(upload_id)
-            os.makedirs(chunk_path, exist_ok=True)
+            # Create the upload-specific directory with mode 0o755
+            os.makedirs(chunk_path, mode=0o755, exist_ok=True)
 
             metadata_data = {
                 "upload_id": upload_id,
@@ -145,7 +186,8 @@ class ChunkedUploadService:
 
             chunk_path = self._get_chunk_file_path(upload_id, chunk_index)
             chunk_dir = os.path.dirname(chunk_path)
-            os.makedirs(chunk_dir, exist_ok=True)
+            # Ensure directory exists with proper permissions
+            os.makedirs(chunk_dir, mode=0o755, exist_ok=True)
 
             with open(chunk_path, "wb") as f:
                 f.write(chunk_data)
@@ -259,9 +301,9 @@ class ChunkedUploadService:
             if not is_complete:
                 return False, error, None
 
-            # Create final file directory
+            # Create final file directory with proper permissions
             final_dir = os.path.dirname(final_path)
-            os.makedirs(final_dir, exist_ok=True)
+            os.makedirs(final_dir, mode=0o755, exist_ok=True)
 
             # Assemble chunks
             total_size = 0

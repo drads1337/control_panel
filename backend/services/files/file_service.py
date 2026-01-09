@@ -888,12 +888,18 @@ class FileService:
         folder_path = os.path.join(base_path, parent_path.lstrip("/"), folder_name)
 
         try:
-            os.makedirs(folder_path, exist_ok=True)
+            # Ensure base path exists first
+            os.makedirs(base_path, mode=0o755, exist_ok=True)
+            # Create folder with proper permissions
+            os.makedirs(folder_path, mode=0o755, exist_ok=True)
             return True, None, {
                 "name": folder_name,
                 "path": folder_path,
                 "created_at": datetime.utcnow().isoformat(),
             }
+        except PermissionError as e:
+            self.logger.error(f"Permission denied creating folder: {e}")
+            return False, f"Permission denied: {str(e)}", None
         except Exception as e:
             self.logger.error(f"Error creating folder: {e}")
             return False, f"Failed to create folder: {str(e)}", None

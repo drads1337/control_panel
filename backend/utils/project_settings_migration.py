@@ -99,7 +99,7 @@ class ProjectSettingsHelper:
         if not settings:
             settings = ProjectEncryptionSettings(project_id=self.project_id)
             db.session.add(settings)
-            db.session.commit()
+            db.session.flush()
             logger.info(f"Created new encryption settings for project {self.project_id}")
         
         return settings

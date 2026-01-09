@@ -188,40 +188,57 @@ class DecryptionService:
         """
         import time
         
-        project_id_int = int(project_id)
+        # Оптимизация: Convert project_id (which may be unique_id string) to numeric project.id
+        # Используем один запрос - сначала по unique_id (самый частый случай)
+        from ...models.core import Project
+        
+        # Сначала пробуем по unique_id (самый частый случай для больших ID)
+        project = Project.query.filter_by(unique_id=str(project_id)).first()
+        if not project:
+            # Fallback: пробуем по числовому id (только если это число и в пределах integer)
+            try:
+                project_id_int = int(project_id)
+                if project_id_int <= 2147483647:  # PostgreSQL integer max value
+                    project = Project.query.get(project_id_int)
+            except (ValueError, TypeError):
+                pass
+        
+        if not project:
+            raise ValueError(f"Project not found for project_id={project_id}")
+        
+        project_id_int = project.id  # Use numeric id from database
         start_time = time.perf_counter()
 
 
 
         
 
-        from ...models.core import ProjectEncryptionKeys
-        from ...utils.project_settings_migration import ProjectSettingsHelper
+        from ...models.core import ProjectEncryptionKeys, ProjectEncryptionSettings
         
-        helper = ProjectSettingsHelper(project_id_int)
-        encryption_settings = helper.get_encryption_settings()
+        # Оптимизация: загружаем все нужные данные параллельно (прямые запросы без helper)
+        encryption_settings = ProjectEncryptionSettings.query.filter_by(project_id=project_id_int).first()
         encryption_keys = ProjectEncryptionKeys.query.filter_by(project_id=project_id_int).first()
         
-
+        # Создаем encryption_settings только если не существует (без лишнего commit)
+        if not encryption_settings:
+            encryption_settings = ProjectEncryptionSettings(project_id=project_id_int)
+            db.session.add(encryption_settings)
+            # Не делаем commit сразу - отложим до конца транзакции
+            db.session.flush()  # Получаем ID без commit
+        
         has_project_master_key = bool(encryption_settings and encryption_settings.project_master_key)
         has_aes_key = bool(encryption_keys and encryption_keys.aes_key)
         
 
         logger.debug(f"[DECRYPT_PROJECT] Attempting decryption for project {project_id}")
 
-
-
-
         decryption_result = None
         decryption_success = False
         decrypt_error = None
         
-
-
-
-
         try:
-            data = decrypt_data_with_project_key(enc_data, project_id_int, use_gcm=True)
+            # Оптимизация: используем уже загруженные данные, чтобы избежать повторных запросов к БД
+            data = self._decrypt_with_loaded_keys(enc_data, project_id_int, encryption_keys, encryption_settings)
             decryption_result = data
             decryption_success = True
             decrypt_error = None
@@ -290,6 +307,116 @@ class DecryptionService:
                 f"(execution_time={execution_time:.4f}s)"
             )
             return decryption_result, project_id_int
+        else:
+            # Обработка ошибок
+            if decrypt_error:
+                if has_aes_key:
+                    error_context = (
+                        f"Decryption failed for project {project_id_int}. "
+                        "AES Key from ProjectEncryptionKeys exists but decryption failed. "
+                        "This may indicate: key mismatch (client using different key), "
+                        "corrupted encrypted data, or encryption format mismatch. "
+                        "Ensure client uses the correct AES Key from ProjectEncryptionKeys."
+                    )
+                else:
+                    error_context = (
+                        f"Decryption failed for project {project_id_int}. "
+                        "AES Key from ProjectEncryptionKeys is missing. "
+                        "Please configure Cryptographic Keys (AES Key) in project settings."
+                    )
+                raise ValueError(error_context) from decrypt_error
+            
+            logger.warning(
+                f"[DECRYPT_PROJECT] Unexpected state: decryption failed but no exception was captured "
+                f"for project {project_id}"
+            )
+            raise ValueError(
+                f"Decryption failed for project {project_id}. "
+                f"Unexpected state: no exception captured but decryption was not successful."
+            )
+    
+    def _decrypt_with_loaded_keys(
+        self, 
+        enc_data: str, 
+        project_id: int,
+        encryption_keys: Optional['ProjectEncryptionKeys'],
+        encryption_settings: 'ProjectEncryptionSettings'
+    ) -> dict:
+        """
+        Оптимизированная версия decrypt_data_with_project_key, использующая уже загруженные данные.
+        Избегает повторных запросов к БД.
+        """
+        from ...utils.secure_crypto import MasterKeyManager
+        import json
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        project_key = None
+        key_source = None
+        
+        # Пробуем использовать encryption_keys (приоритет)
+        if encryption_keys:
+            try:
+                project_key = encryption_keys.get_aes_key()
+                key_source = "ProjectEncryptionKeys.aes_key (Envelope Encryption)" if encryption_keys.aes_key_encrypted else "ProjectEncryptionKeys.aes_key"
+            except ValueError:
+                if encryption_keys.aes_key:
+                    aes_key = encryption_keys.aes_key.strip()
+                    if len(aes_key) != 64:
+                        raise ValueError(f"Invalid AES key format for project {project_id}: expected 64 hex characters, got {len(aes_key)}")
+                    try:
+                        key_bytes_test = bytes.fromhex(aes_key)
+                        if len(key_bytes_test) != 32:
+                            raise ValueError(f"Invalid AES key format for project {project_id}: key must decode to 32 bytes")
+                    except ValueError as hex_error:
+                        raise ValueError(f"Invalid AES key format for project {project_id}: {str(hex_error)}")
+                    project_key = aes_key
+                    key_source = "ProjectEncryptionKeys.aes_key (legacy)"
+        
+        # Fallback на project_master_key если encryption_keys не доступен
+        if not project_key:
+            if not encryption_settings.project_master_key:
+                raise ValueError(
+                    f"No encryption key found for project {project_id}. "
+                    f"Please configure Cryptographic Keys (AES Key) in project settings."
+                )
+            
+            project_master_key = encryption_settings.project_master_key.strip()
+            if len(project_master_key) != 64:
+                raise ValueError(
+                    f"Invalid project_master_key format for project {project_id}: "
+                    f"expected 64 hex characters, got {len(project_master_key)}"
+                )
+            try:
+                key_bytes_test = bytes.fromhex(project_master_key)
+                if len(key_bytes_test) != 32:
+                    raise ValueError(
+                        f"Invalid project_master_key format for project {project_id}: "
+                        f"key must decode to 32 bytes"
+                    )
+            except ValueError as hex_error:
+                raise ValueError(
+                    f"Invalid project_master_key format for project {project_id}: {str(hex_error)}"
+                )
+            
+            project_key = project_master_key
+            key_source = "ProjectSettings.project_master_key"
+        
+        logger.debug(f"[DECRYPT_PROJECT] Decrypting with {key_source} for project {project_id}")
+        
+        try:
+            # Используем legacy метод для совместимости с клиентами (AES-256-GCM)
+            json_str = MasterKeyManager.decrypt_with_master_key_legacy(enc_data, project_key)
+            logger.debug(f"[DECRYPT_PROJECT] Successfully decrypted with {key_source} for project {project_id}")
+            return json.loads(json_str)
+        except Exception as decrypt_error:
+            logger.warning(
+                f"[DECRYPT_PROJECT] Decryption failed with {key_source} for project {project_id}: {type(decrypt_error).__name__}"
+            )
+            raise ValueError(
+                f"Decryption failed for project {project_id}. "
+                f"Please verify that the encryption key is correct."
+            ) from decrypt_error
         else:
 
 
