@@ -1,4 +1,7 @@
 import logging
+import os
+import json
+from datetime import datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -27,6 +30,9 @@ from ..schemas.mtls import CSRSignSchema
 from ..utils.mtls_manager import MTLSProjectManager
 from ..utils.rbac_utils import RBACManager
 from ..utils.role_constants import UserRoles
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 
 projects_bp = Blueprint("projects", __name__)
 _mtls_manager = MTLSProjectManager()
@@ -567,10 +573,11 @@ def sign_project_csr_public(project_id):
         req_json = request.get_json(silent=True) or {}
         user_key = req_json.get("user_key")
         csr_pem = req_json.get("csr_pem")
+        device_fingerprint = req_json.get("fingerprint")
         client_name = req_json.get("client_name", "client")
 
-        if not user_key or not csr_pem:
-            return jsonify({"error": "user_key and csr_pem are required"}), 400
+        if not user_key:
+            return jsonify({"error": "user_key is required"}), 400
 
         # Валидация user_key - проверяем, что ключ существует и принадлежит проекту
         key = Key.query.filter_by(key=user_key, project_id=project.id).first()
@@ -582,17 +589,96 @@ def sign_project_csr_public(project_id):
         if key.status != 1:
             return jsonify({"error": "Key is not active"}), 403
 
-        # Проверяем, что общий CA существует (упрощенная конфигурация - один CA для всех)
+        # Проверяем/создаем общий CA (упрощенная конфигурация - один CA для всех)
         try:
-            _mtls_manager.get_ca_cert(project.unique_id)
+            ca_cert, ca_fingerprint = _mtls_manager.ensure_ca_exists()
             logging.info(f"Verified single CA exists for project {project.unique_id}")
         except Exception as e:
             logging.error(f"CA certificate not found: {e}. Please create it using scripts/create_single_ca.sh")
             return jsonify({"error": "CA certificate not configured. Please contact administrator."}), 500
 
+        def _parse_key_metadata(raw):
+            if not raw:
+                return {}
+            try:
+                return json.loads(raw) if isinstance(raw, str) else raw
+            except Exception as parse_err:
+                logging.warning(f"Failed to parse key_metadata for key {key.id}: {parse_err}")
+                return {}
+
+        def _save_key_metadata(meta):
+            try:
+                key.key_metadata = json.dumps(meta)
+                db.session.commit()
+            except Exception as commit_err:
+                db.session.rollback()
+                logging.error(f"Failed to persist key_metadata for key {key.id}: {commit_err}")
+
+        def _cert_days_left(cert_pem: str) -> float:
+            cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            remaining = cert.not_valid_after - datetime.utcnow()
+            return remaining.total_seconds() / 86400.0
+
+        def _cert_fingerprint_and_serial(cert_pem: str) -> tuple[str, str]:
+            cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            fp = cert.fingerprint(hashes.SHA256()).hex().upper()
+            serial = format(cert.serial_number, "x")
+            return fp, serial
+
+        # Return existing active certificate for this user_key + device_fingerprint if present and valid
+        meta = _parse_key_metadata(key.key_metadata)
+        mtls_meta = meta.get("mtls", {})
+        cache_key = device_fingerprint or "default"
+        existing = mtls_meta.get(cache_key)
+        if existing and existing.get("status") == "active" and existing.get("certificate"):
+            try:
+                days_left = _cert_days_left(existing["certificate"])
+                if days_left > 7:
+                    logging.info(
+                        f"Returning cached mTLS cert for key {key.id}, device={cache_key}, days_left={days_left:.1f}"
+                    )
+                    return (
+                        jsonify(
+                            {
+                                "project_id": project.unique_id,
+                                "client_name": client_name,
+                                "certificate": existing["certificate"],
+                                "ca_certificate": existing.get("ca_certificate", ca_cert),
+                                "fingerprint": ca_fingerprint,
+                                "cert_fingerprint": existing.get("cert_fingerprint"),
+                                "cert_serial": existing.get("cert_serial"),
+                                "status": "active",
+                                "source": "cache",
+                            }
+                        ),
+                        200,
+                    )
+                else:
+                    logging.info(
+                        f"Cached certificate for key {key.id}, device={cache_key} expires soon ({days_left:.1f}d), issuing new one"
+                    )
+            except Exception as e:
+                logging.warning(
+                    f"Failed to reuse cached certificate for key {key.id}, device={cache_key}: {e}"
+                )
+
+        if existing and existing.get("status") in {"revoked", "blocked"}:
+            return jsonify({"error": "CERT_REVOKED"}), 403
+        if existing and existing.get("status") == "expired":
+            return jsonify({"error": "CERT_EXPIRED"}), 403
+
+        # Если CSR не прислан, генерируем ключ и CSR на сервере (удобно для клиентов без CSR)
+        generated_key_pem = None
+        if not csr_pem:
+            try:
+                generated_key_pem, csr_pem = _mtls_manager.generate_key_and_csr(client_name)
+            except Exception as e:
+                logging.error(f"Failed to generate key/CSR for project {project_id}: {e}")
+                return jsonify({"error": f"Failed to generate CSR: {str(e)}"}), 500
+
         # Подписываем CSR
         try:
-            client_cert, ca_cert, fingerprint = _mtls_manager.sign_csr(
+            client_cert, ca_cert, ca_fingerprint = _mtls_manager.sign_csr(
                 project_id=project.unique_id,
                 csr_pem=csr_pem,
                 client_name=client_name,
@@ -605,19 +691,46 @@ def sign_project_csr_public(project_id):
 
         logging.info(f"CSR signed for user_key {user_key[:10]}... in project {project_id}")
 
-        return (
-            jsonify(
+        cert_fp, cert_serial = _cert_fingerprint_and_serial(client_cert)
+
+        # Persist certificate info per device fingerprint for reuse
+        mtls_meta[cache_key] = {
+            "certificate": client_cert,
+            "ca_certificate": ca_cert,
+            "cert_fingerprint": cert_fp,
+            "cert_serial": cert_serial,
+            "status": "active",
+            "fingerprint": device_fingerprint,
+            "client_name": client_name,
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        }
+        meta["mtls"] = mtls_meta
+        _save_key_metadata(meta)
+
+        response_payload = {
+            "project_id": project.unique_id,
+            "client_name": client_name,
+            "certificate": client_cert,
+            "ca_certificate": ca_cert,
+            "fingerprint": ca_fingerprint,
+            "cert_fingerprint": cert_fp,
+            "cert_serial": cert_serial,
+            "algorithm": "SHA-256",
+            "status": "active",
+            "source": "new",
+        }
+        if generated_key_pem:
+            response_payload.update(
                 {
-                    "project_id": project.unique_id,
-                    "client_name": client_name,
-                    "certificate": client_cert,
-                    "ca_certificate": ca_cert,
-                    "fingerprint": fingerprint,
-                    "algorithm": "SHA-256",
+                    "private_key": generated_key_pem,
+                    "key_algorithm": "RSA",
+                    "key_bits": int(os.environ.get("MTLS_CLIENT_KEY_BITS", "2048")),
+                    "exportable_key": True,
+                    "note": "Private key was generated server-side for convenience. Store it securely.",
                 }
-            ),
-            201,
-        )
+            )
+
+        return jsonify(response_payload), 201
     except Exception as e:
         logging.error(f"Error signing CSR for project {project_id}: {e}")
         import traceback

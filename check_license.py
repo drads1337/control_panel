@@ -30,6 +30,10 @@ import secrets
 import subprocess
 import tempfile
 import requests
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from typing import Optional, Tuple
 
 # Попробуем импортировать httpx (лучше работает с mTLS)
@@ -44,10 +48,12 @@ except ImportError:
 # Конфигурация
 # ============================================================================
 SERVER_URL = "https://ovrin.xyz"
-USER_KEY = "PUBG-1M-F4mzCUcPAzl5"
+USER_KEY = "PUBG-12M-po8Zkz53vF0v"
 GAME_NAME = "PUBG"
 MASTER_KEY = "894a642561a8c0237a748a958aa5b828b6a9a0320364f8a85658b7d8ac3e1f4a"  # Project-specific master key
 PROJECT_ID = "6117759936"
+CLIENT_NAME = "check-license-client"
+TLS_ALLOW_INSECURE = os.environ.get("TLS_ALLOW_INSECURE", "false").lower() == "true"
 
 # Примечание: MASTER_KEY должен совпадать с project-specific ключом проекта
 # Если ответ не расшифровывается, проверьте project encryption settings в базе данных
@@ -219,6 +225,95 @@ def _try_curl_request(url: str, data: dict, headers: dict, cert: Tuple[str, str]
         print(f"[Challenge] ⚠ curl fallback не сработал: {e}")
         return None
 
+
+def fetch_or_create_mtls_cert(user_key: str, project_id: str, client_name: str = CLIENT_NAME) -> Optional[Tuple[str, str, Optional[str]]]:
+    """
+    Получить/создать mTLS сертификаты через публичный CSR endpoint.
+    Генерирует ключ+CSR локально, отправляет csr_pem, сохраняет cert+key во временные файлы.
+    Возвращает (cert_path, key_path, ca_path|None).
+    """
+    # 1) Генерируем ключ и CSR
+    try:
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        key_pem = key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode()
+
+        csr = (
+            x509.CertificateSigningRequestBuilder()
+            .subject_name(
+                x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, client_name)])
+            )
+            .sign(key, hashes.SHA256())
+        )
+        csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode()
+    except Exception as e:
+        print(f"[mTLS] ❌ Не удалось сгенерировать ключ/CSR: {e}")
+        return None
+
+    # 2) Отправляем CSR на публичный эндпоинт
+    url = f"{SERVER_URL}/api/projects/{project_id}/mtls/csr-sign-public"
+    payload = {"user_key": user_key, "client_name": client_name, "csr_pem": csr_pem}
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10, verify=False)
+    except Exception as e:
+        print(f"[mTLS] ❌ Запрос на выпуск сертификата не удался: {e}")
+        return None
+
+    if resp.status_code != 201:
+        print(f"[mTLS] ❌ Эндпоинт вернул {resp.status_code}: {resp.text}")
+        return None
+
+    try:
+        data = resp.json()
+    except Exception as e:
+        print(f"[mTLS] ❌ Не удалось распарсить JSON ответа: {e}")
+        return None
+
+    cert_pem = data.get("certificate")
+    ca_pem = data.get("ca_certificate")
+
+    if not cert_pem:
+        print(f"[mTLS] ❌ В ответе нет certificate")
+        return None
+
+    ca_tmp_path = None
+    if ca_pem:
+        try:
+            ca_tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False)
+            ca_tmp.write(ca_pem)
+            ca_tmp.flush()
+            ca_tmp.close()
+            os.chmod(ca_tmp.name, 0o644)
+            ca_tmp_path = ca_tmp.name
+        except Exception as e:
+            print(f"[mTLS] ⚠ Не удалось сохранить CA сертификат: {e}")
+            ca_tmp_path = None
+
+    try:
+        cert_tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False)
+        key_tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False)
+        cert_tmp.write(cert_pem)
+        key_tmp.write(key_pem)
+        cert_tmp.flush()
+        key_tmp.flush()
+        cert_tmp.close()
+        key_tmp.close()
+        os.chmod(cert_tmp.name, 0o600)
+        os.chmod(key_tmp.name, 0o600)
+        print(f"[mTLS] ✓ Сертификаты получены через API и сохранены во временные файлы")
+        print(f"[mTLS]   Cert: {cert_tmp.name}")
+        print(f"[mTLS]   Key:  {key_tmp.name}")
+        if ca_tmp_path:
+            print(f"[mTLS]   CA:   {ca_tmp_path}")
+        return cert_tmp.name, key_tmp.name, ca_tmp_path
+    except Exception as e:
+        print(f"[mTLS] ❌ Ошибка записи временных файлов: {e}")
+        return None
+
 def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert: Optional[Tuple[str, str]] = None, session: Optional[requests.Session] = None) -> Tuple[str, str]:
     """
     Получает challenge от сервера
@@ -241,9 +336,7 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert: O
     # Измеряем время выполнения
     challenge_start_time = time.perf_counter()
     
-    # Настройка SSL (отключение проверки для тестирования)
-    # Для mTLS обычно нужно отключить verify, чтобы избежать проблем с CA
-    verify_ssl = False  # Отключаем проверку SSL сервера для mTLS
+    verify_ssl = session.verify if session is not None else True
     
     # Настройка mTLS если есть сертификаты
     cert = None
@@ -319,7 +412,7 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert: O
         else:
             response = None
         
-        # Fallback на requests если httpx не доступен или не сработал
+        # Requests path (без curl fallback)
         if response is None:
             # Используем переданный Session или создаем новый
             use_external_session = session is not None
@@ -331,7 +424,6 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert: O
                     session.cert = cert
                     print(f"[Challenge] ✓ mTLS сертификаты установлены в requests session")
             
-            # Подавляем предупреждения о небезопасных запросах
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             
@@ -342,18 +434,19 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert: O
                     headers=headers,
                     timeout=5  # Уменьшен timeout для быстрого ответа
                 )
-            except Exception as e:
-                print(f"[Challenge] ⚠ requests не сработал: {e}")
-                # Последний fallback - curl через subprocess
-                if cert:
-                    print(f"[Challenge] Пробуем curl как последний fallback...")
-                    response = _try_curl_request(url, data, headers, cert, verify_ssl)
-                    if response is None:
-                        raise Exception("Все методы отправки запроса не сработали (requests и curl)")
+            except requests.exceptions.SSLError as e:
+                if TLS_ALLOW_INSECURE:
+                    print(f"[Challenge] ⚠ TLS verify failed, retrying with verify=False (insecure): {e}")
+                    response = session.post(
+                        url,
+                        json=data,
+                        headers=headers,
+                        timeout=5,
+                        verify=False,
+                    )
                 else:
                     raise
             
-            # Закрываем сессию только если мы её создали
             if not use_external_session:
                 session.close()
         
@@ -445,8 +538,14 @@ def get_challenge(user_key: str, fingerprint: str, project_id: str, mtls_cert: O
         print(f"[Challenge] ❌ Ошибка запроса: {e}")
         raise
 
-def connect(user_key: str, challenge: str, canary: str, fingerprint: str, 
-            game_name: str, project_id: str, mtls_cert: Optional[Tuple[str, str]] = None, session: Optional[requests.Session] = None) -> str:
+def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
+            game_name: str, project_id: str,
+            device_serial: str,
+            device_android_id: str,
+            device_model: str,
+            device_brand: str,
+            mtls_cert: Optional[Tuple[str, str]] = None,
+            session: Optional[requests.Session] = None) -> str:
     """
     Отправляет connect запрос с решением challenge
     """
@@ -472,10 +571,10 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
         "c": canary,
         "d": fingerprint,
         "e": game_name,
-        "f": "test-serial",  # В реальном приложении это Android ID
-        "g": "test-android-id",  # Android ID
-        "h": "test-device-model",  # Device model
-        "i": "test-device-brand",  # Device brand
+        "f": device_serial,
+        "g": device_android_id,
+        "h": device_model,
+        "i": device_brand,
         "j": nonce,
         "k": project_id
     }
@@ -518,9 +617,8 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
         }
         print(f"[Connect] Headers: {headers}")
         
-        # Отключаем проверку SSL для mTLS
-        verify_ssl = False
-        print(f"[Connect] SSL проверка: отключена (для mTLS)")
+        verify_ssl = session.verify if session is not None else True
+        print(f"[Connect] SSL verify: {verify_ssl}")
         print(f"[Connect] Отправка POST запроса...")
         
         # Настройка mTLS если есть сертификаты
@@ -562,9 +660,8 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
             except Exception as e:
                 print(f"[Connect] ⚠ httpx не сработал: {e}, пробуем requests...")
         
-        # Fallback на requests если httpx не доступен или не сработал
+        # Requests path (без curl fallback)
         if response is None:
-            # Используем переданный Session или создаем новый
             use_external_session = session is not None
             if not use_external_session:
                 session = requests.Session()
@@ -574,7 +671,6 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
                     session.cert = cert
                     print(f"[Connect] ✓ mTLS сертификаты установлены в requests session")
             
-            # Подавляем предупреждения о небезопасных запросах
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             
@@ -585,16 +681,19 @@ def connect(user_key: str, challenge: str, canary: str, fingerprint: str,
                     headers=headers,
                     timeout=5  # Уменьшен timeout для быстрого ответа
                 )
-            except Exception as e:
-                print(f"[Connect] ⚠ requests не сработал: {e}")
-                # Последний fallback - curl через subprocess
-                if cert:
-                    print(f"[Connect] Пробуем curl как последний fallback...")
-                    response = _try_curl_request(url, request_data, headers, cert, verify_ssl)
+            except requests.exceptions.SSLError as e:
+                if TLS_ALLOW_INSECURE:
+                    print(f"[Connect] ⚠ TLS verify failed, retrying with verify=False (insecure): {e}")
+                    response = session.post(
+                        url,
+                        json=request_data,
+                        headers=headers,
+                        timeout=5,
+                        verify=False,
+                    )
                 else:
                     raise
             
-            # Закрываем сессию только если мы её создали
             if not use_external_session:
                 session.close()
         
@@ -678,39 +777,33 @@ def main():
     print(f"Master Key: {MASTER_KEY[:16]}...{MASTER_KEY[-16:]}")
     print("="*60)
     
-    # Генерируем fingerprint (в реальном приложении это SHA256 от device info)
-    device_info = "test-android-id-test-device-model-test-device-brand"
+    # Генерируем fingerprint (рандомное устройство для теста)
+    device_info = f"android-id-{random_hex(12)}-model-{random_hex(8)}-brand-{random_hex(8)}"
     fingerprint = sha256(device_info)
     print(f"\n[Main] Device fingerprint: {fingerprint}")
+    print(f"[Main] Device info seed: {device_info}")
     
-    # Проверяем наличие mTLS сертификатов (опционально)
+    # Получаем mTLS сертификаты через API (или используем env-пути, если заданы)
     mtls_cert = None
-    
-    # Сначала проверяем переменные окружения
+    auto_cleanup = []
     cert_path = os.environ.get("MTLS_CERT_PATH")
     key_path = os.environ.get("MTLS_KEY_PATH")
-    
-    # Если не указаны в переменных, ищем автоматически для проекта
-    if not cert_path or not key_path:
-        # Автоматический поиск сертификатов для проекта
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        auto_cert_path = os.path.join(script_dir, "nginx", "ssl", "projects", PROJECT_ID, "clients", "test-client", "client-cert.pem")
-        auto_key_path = os.path.join(script_dir, "nginx", "ssl", "projects", PROJECT_ID, "clients", "test-client", "client-key.pem")
-        
-        if os.path.exists(auto_cert_path) and os.path.exists(auto_key_path):
-            cert_path = auto_cert_path
-            key_path = auto_key_path
-            print(f"[Main] ✓ Автоматически найдены mTLS сертификаты для проекта {PROJECT_ID}")
-    
+
     if cert_path and key_path and os.path.exists(cert_path) and os.path.exists(key_path):
         mtls_cert = (cert_path, key_path)
-        print(f"[Main] Используются mTLS сертификаты:")
+        print(f"[Main] Используются mTLS сертификаты из переменных окружения:")
         print(f"[Main]   Cert: {cert_path}")
-        print(f"[Main]   Key: {key_path}")
+        print(f"[Main]   Key:  {key_path}")
     else:
-        print(f"[Main] ⚠ mTLS сертификаты не найдены")
-        print(f"[Main]   Установите MTLS_CERT_PATH и MTLS_KEY_PATH для использования mTLS")
-        print(f"[Main]   Или создайте сертификаты в: nginx/ssl/projects/{PROJECT_ID}/clients/test-client/")
+        print(f"[Main] ⚠ Локальные пути к сертификатам не заданы, запрашиваем через API...")
+        fetched = fetch_or_create_mtls_cert(USER_KEY, PROJECT_ID, CLIENT_NAME)
+        if fetched:
+            cert_path, key_path, ca_verify_path = fetched
+            mtls_cert = (cert_path, key_path)
+            auto_cleanup.extend([p for p in [cert_path, key_path, ca_verify_path] if p])
+        if not mtls_cert:
+            print(f"[Main] ❌ Не удалось получить сертификаты через API. Прерываем.")
+            return 1
     
     try:
         # Общее время выполнения
@@ -720,8 +813,9 @@ def main():
         shared_session = None
         if mtls_cert:
             shared_session = requests.Session()
-            shared_session.verify = False
+            shared_session.verify = True  # системный trust store (LE fullchain валиден)
             shared_session.cert = (mtls_cert[0], mtls_cert[1])
+            shared_session.headers.update({"Connection": "keep-alive"})
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
             print(f"[Main] ✓ Создана переиспользуемая Session для оптимизации")
@@ -733,6 +827,10 @@ def main():
             
             # Шаг 2: Отправляем connect (используем ту же Session)
             print("\n[Main] Шаг 2: Отправка connect запроса...")
+            device_serial = fingerprint[:16]
+            device_android_id = device_info.split("-")[2] if "-" in device_info else "android-id"
+            device_model = device_info.split("-")[4] if "-" in device_info else "device-model"
+            device_brand = device_info.split("-")[6] if "-" in device_info else "device-brand"
             result = connect(
                 USER_KEY,
                 challenge,
@@ -740,6 +838,10 @@ def main():
                 fingerprint,
                 GAME_NAME,
                 PROJECT_ID,
+                device_serial,
+                device_android_id,
+                device_model,
+                device_brand,
                 mtls_cert,
                 shared_session
             )
@@ -748,6 +850,12 @@ def main():
             if shared_session:
                 shared_session.close()
                 print(f"[Main] ✓ Session закрыта")
+            # Удаляем временные файлы, если создавали
+            for tmp in auto_cleanup:
+                try:
+                    os.unlink(tmp)
+                except Exception:
+                    pass
         
         total_end_time = time.perf_counter()
         total_duration_ms = (total_end_time - total_start_time) * 1000

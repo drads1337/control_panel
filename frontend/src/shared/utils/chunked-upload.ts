@@ -151,40 +151,52 @@ export async function uploadFileInChunks(
     // (token might have expired during long uploads)
     const { prefetchCsrfToken, getCsrfHeaders } = await import('@/shared/lib/csrf');
     await prefetchCsrfToken(); // Clear cache and fetch fresh token
-    const csrfHeaders = await getCsrfHeaders();
     
     // Use finalize endpoint (e.g., /api/files/product-files/extra/finalize)
     const finalizeUrl = getApiUrl(endpoint.includes('/finalize') ? endpoint : `${endpoint}/finalize`);
     
-    const finalizeResponse = await fetch(finalizeUrl, {
-      method: 'POST',
-      headers: {
-        ...csrfHeaders,
-      },
-      credentials: 'include',
-      body: finalizeFormData,
-    });
+    // Get fresh CSRF headers for the finalize request
+    const csrfHeaders = await getCsrfHeaders();
+    
+    try {
+      // Use fetch for consistency with chunk uploads and to ensure cookies are sent properly
+      const finalizeResponse = await fetch(finalizeUrl, {
+        method: 'POST',
+        headers: {
+          ...csrfHeaders,
+        },
+        credentials: 'include', // Ensure cookies (including JWT) are sent
+        body: finalizeFormData,
+      });
 
-    if (!finalizeResponse.ok) {
-      const errorData = await finalizeResponse.json().catch(() => ({ error: 'Finalization failed' }));
-      
-      // If it's an authentication error, provide more helpful message
-      if (finalizeResponse.status === 401) {
+      if (!finalizeResponse.ok) {
+        const errorData = await finalizeResponse.json().catch(() => ({ error: 'Failed to finalize chunked upload' }));
+        const status = finalizeResponse.status;
+        
+        // If it's an authentication error, provide more helpful message
+        if (status === 401) {
+          return {
+            success: false,
+            error: errorData.error || 'Authentication failed. Please try logging in again.',
+          };
+        }
+        
         return {
           success: false,
-          error: errorData.error || 'Authentication failed. Please try logging in again.',
+          error: errorData.error || `Failed to finalize chunked upload (status: ${status})`,
         };
       }
-      
+
+      const result = await finalizeResponse.json();
+      options.onProgress?.(100);
+      return { success: true, result };
+    } catch (error) {
+      // Handle network or other errors
       return {
         success: false,
-        error: errorData.error || 'Failed to finalize chunked upload',
+        error: error instanceof Error ? error.message : 'Chunked upload failed',
       };
     }
-
-    const result = await finalizeResponse.json();
-    options.onProgress?.(100);
-    return { success: true, result };
   } catch (error) {
     return {
       success: false,

@@ -37,7 +37,7 @@ class ChallengeService:
 
 
 
-    def generate_crypto_challenge(self, user_key: str, fingerprint: str) -> Dict:
+    def generate_crypto_challenge(self, user_key: str, fingerprint: str, fast: bool = False) -> Dict:
         """Generate a cryptographic challenge using secure algorithms only"""
         import hashlib
         import secrets
@@ -56,57 +56,59 @@ class ChallengeService:
 
         challenges = {}
 
+        # Minimal set for fast path (CPU-light; smaller payload)
         sha256_input = f"{user_key}{fingerprint}{salt}{nonce}"
         challenges["sha256"] = {
             "input": sha256_input,
             "expected": hashlib.sha256(sha256_input.encode()).hexdigest(),
         }
 
-        sha512_input = f"{fingerprint}{user_key}{salt}{nonce}"
-        challenges["sha512"] = {
-            "input": sha512_input,
-            "expected": hashlib.sha512(sha512_input.encode()).hexdigest(),
-        }
-
-        try:
-            sha3_input = f"{salt}{user_key}{fingerprint}{nonce}"
-            challenges["sha3_256"] = {
-                "input": sha3_input,
-                "expected": hashlib.sha3_256(sha3_input.encode()).hexdigest(),
+        if not fast:
+            sha512_input = f"{fingerprint}{user_key}{salt}{nonce}"
+            challenges["sha512"] = {
+                "input": sha512_input,
+                "expected": hashlib.sha512(sha512_input.encode()).hexdigest(),
             }
-        except AttributeError:
 
-            pass
+            try:
+                sha3_input = f"{salt}{user_key}{fingerprint}{nonce}"
+                challenges["sha3_256"] = {
+                    "input": sha3_input,
+                    "expected": hashlib.sha3_256(sha3_input.encode()).hexdigest(),
+                }
+            except AttributeError:
 
-        try:
-            blake2b_input = f"{user_key}{fingerprint}{salt}{nonce}{timestamp}"
-            challenges["blake2b"] = {
-                "input": blake2b_input,
-                "expected": hashlib.blake2b(blake2b_input.encode()).hexdigest(),
+                pass
+
+            try:
+                blake2b_input = f"{user_key}{fingerprint}{salt}{nonce}{timestamp}"
+                challenges["blake2b"] = {
+                    "input": blake2b_input,
+                    "expected": hashlib.blake2b(blake2b_input.encode()).hexdigest(),
+                }
+            except AttributeError:
+
+                pass
+
+            combined_input = f"{user_key}{fingerprint}{salt}{timestamp}"
+            hmac_key = hashlib.sha256(f"{user_key}{fingerprint}".encode()).digest()
+            import hmac
+
+            challenges["hmac_sha256"] = {
+                "input": combined_input,
+                "key": hmac_key.hex(),
+                "expected": hmac.new(hmac_key, combined_input.encode(), hashlib.sha256).hexdigest(),
             }
-        except AttributeError:
 
-            pass
-
-        combined_input = f"{user_key}{fingerprint}{salt}{timestamp}"
-        hmac_key = hashlib.sha256(f"{user_key}{fingerprint}".encode()).digest()
-        import hmac
-
-        challenges["hmac_sha256"] = {
-            "input": combined_input,
-            "key": hmac_key.hex(),
-            "expected": hmac.new(hmac_key, combined_input.encode(), hashlib.sha256).hexdigest(),
-        }
-
-        pbkdf2_salt = secrets.token_hex(16)
-        challenges["pbkdf2"] = {
-            "input": f"{user_key}{fingerprint}",
-            "salt": pbkdf2_salt,
-            "iterations": 10000,
-            "expected": hashlib.pbkdf2_hmac(
-                "sha256", f"{user_key}{fingerprint}".encode(), bytes.fromhex(pbkdf2_salt), 10000
-            ).hex(),
-        }
+            pbkdf2_salt = secrets.token_hex(16)
+            challenges["pbkdf2"] = {
+                "input": f"{user_key}{fingerprint}",
+                "salt": pbkdf2_salt,
+                "iterations": 10000,
+                "expected": hashlib.pbkdf2_hmac(
+                    "sha256", f"{user_key}{fingerprint}".encode(), bytes.fromhex(pbkdf2_salt), 10000
+                ).hex(),
+            }
 
         return {
             "challenges": challenges,
@@ -114,6 +116,7 @@ class ChallengeService:
             "timestamp": timestamp,
             "nonce": nonce,
             "challenge_id": secrets.token_hex(8),
+            "mode": "fast" if fast else "standard",
         }
 
     def generate_memory_challenge(self) -> Dict:
@@ -404,18 +407,18 @@ class ChallengeService:
 
         return "standard"
 
-    def create_enhanced_challenge(self, user_key: str, fingerprint: str) -> Dict:
+    def create_enhanced_challenge(self, user_key: str, fingerprint: str, fast: bool = False) -> Dict:
         """Create an enhanced challenge combining multiple techniques with replay protection"""
         import secrets
 
-        complexity = self.get_challenge_complexity(user_key, fingerprint)
+        complexity = "basic" if fast else self.get_challenge_complexity(user_key, fingerprint)
 
         challenge_id = secrets.token_hex(16)
         timestamp = int(time.time())
 
         challenges = {}
 
-        challenges["crypto"] = self.generate_crypto_challenge(user_key, fingerprint)
+        challenges["crypto"] = self.generate_crypto_challenge(user_key, fingerprint, fast=fast)
 
 
 
@@ -423,7 +426,7 @@ class ChallengeService:
 
 
 
-        if complexity == "maximum":
+        if complexity == "maximum" and not fast:
             challenges["memory"] = self.generate_memory_challenge()
             challenges["anti_debug"] = self.generate_anti_debug_challenge()
 
@@ -488,7 +491,15 @@ class ChallengeService:
             logging.error(f"Challenge ID storage traceback: {traceback.format_exc()}")
 
     def _is_challenge_replay(self, challenge_id: str) -> bool:
-        """Check if challenge ID has been used before (replay attack)"""
+        """
+        Check if challenge ID has been used before (replay attack).
+        
+        Logic:
+        - If challenge_id exists in Redis: This is the FIRST use (not a replay)
+          -> Delete it (mark as used) and return False
+        - If challenge_id does NOT exist: This is a REPLAY (already used)
+          -> Return True
+        """
         import redis
 
         from ...config.config import Config
@@ -506,11 +517,15 @@ class ChallengeService:
             exists = redis_client.exists(key)
 
             if exists:
-
+                # Challenge ID exists = first use (not a replay)
+                # Delete it to mark as used, preventing future replays
                 redis_client.delete(key)
-                return True
+                logging.debug(f"Challenge ID {challenge_id} used for first time, marked as used")
+                return False  # NOT a replay
 
-            return False
+            # Challenge ID does NOT exist = already used (replay attack)
+            logging.warning(f"Challenge ID {challenge_id} replay detected (already used)")
+            return True  # IS a replay
 
         except Exception as e:
             logging.error(f"Error checking challenge replay: {e}")

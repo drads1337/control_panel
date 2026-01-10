@@ -32,13 +32,22 @@ class ConnectOrchestrator:
     Coordinates specialized services to handle the complete authentication process
     """
 
-    def __init__(self):
+    def __init__(self, challenge_service=None):
         """Initialize orchestrator with all required services"""
+        from ...utils.service_helpers import get_service
+        
+        # Get challenge_service from service container if not provided
+        if challenge_service is None:
+            try:
+                challenge_service = get_service('challenge_service')
+            except Exception:
+                logger.warning("challenge_service not available from service container, enhanced challenge validation may fail")
+                challenge_service = None
 
         self.decryption_service = DecryptionService()
         self.request_validator = RequestValidationService()
         self.key_lookup = KeyLookupService()
-        self.challenge_validator = ChallengeValidationService()
+        self.challenge_validator = ChallengeValidationService(challenge_service=challenge_service)
         self.key_validator = KeyValidator()
 
         self.token_generator = TokenGenerationService()

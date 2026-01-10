@@ -234,7 +234,11 @@ def register_system_routes(app: Flask) -> None:
             """
 
             filename = secure_filename(filename)
-            upload_dir = os.path.join(app.root_path, "uploads")
+            # Fix path: if root_path ends with 'core', go up one level
+            root_path = app.root_path
+            if os.path.basename(root_path) == "core":
+                root_path = os.path.dirname(root_path)
+            upload_dir = os.path.join(root_path, "uploads")
             file_path = os.path.join(upload_dir, filename)
 
             file_path = os.path.normpath(file_path)

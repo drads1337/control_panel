@@ -56,7 +56,11 @@ class ConnectService:
         else:
             self.logger = logging.getLogger(__name__)
 
-        self.orchestrator = ConnectOrchestrator()
+        self._challenge_service = challenge_service
+        self._auth_service = auth_service
+
+        # Pass challenge_service to orchestrator and challenge_validator
+        self.orchestrator = ConnectOrchestrator(challenge_service=challenge_service)
 
         self.key_validator = KeyValidator()
         self.security_checker = SecurityChecker()
@@ -65,11 +69,7 @@ class ConnectService:
         self.response_builder = ResponseBuilder()
         self.key_lookup = KeyLookupService()
         self.request_validator = RequestValidationService()
-        self.challenge_validator = ChallengeValidationService()
-        
-
-        self._challenge_service = challenge_service
-        self._auth_service = auth_service
+        self.challenge_validator = ChallengeValidationService(challenge_service=challenge_service)
     
     def generate_offline_ticket(
         self,
@@ -139,7 +139,7 @@ class ConnectService:
             return None
 
     def handle_challenge_request(
-        self, user_key: str, fingerprint: str, client_project_id: Optional[int], ip: str
+        self, user_key: str, fingerprint: str, client_project_id: Optional[int], ip: str, fast: bool = False
     ) -> Tuple[Dict[str, Any], int]:
         """
         Handle challenge generation request
@@ -179,7 +179,7 @@ class ConnectService:
                     status_code=500,
                     context={"user_key": user_key}
                 )
-            enhanced_challenge = self._challenge_service.create_enhanced_challenge(user_key, fingerprint)
+            enhanced_challenge = self._challenge_service.create_enhanced_challenge(user_key, fingerprint, fast=fast)
             logger.debug(
                 f"ENHANCED_CHALLENGE_GENERATED successfully, keys={list(enhanced_challenge.keys())}"
             )

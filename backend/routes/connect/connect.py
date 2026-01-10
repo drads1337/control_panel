@@ -50,6 +50,7 @@ def get_challenge():
     user_key = req_json.get("user_key")
     fingerprint = req_json.get("fingerprint")
     client_project_id = req_json.get("project_id")
+    fast = bool(req_json.get("fast", False))
 
     if not user_key or not fingerprint:
         return jsonify({"error": "Missing user_key or fingerprint"}), 400
@@ -72,7 +73,8 @@ def get_challenge():
         user_key=user_key,
         fingerprint=fingerprint,
         client_project_id=client_project_id,
-        ip=ip
+        ip=ip,
+        fast=fast,
     )
 
     return jsonify(response), status_code

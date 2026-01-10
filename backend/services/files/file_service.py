@@ -280,6 +280,17 @@ class FileService:
         except RuntimeError:
             upload_folder = self.upload_folder
             root_path = os.getcwd()
+        
+        # If root_path ends with 'core', go up one level to get to the backend directory
+        # This handles the case where Flask app is in /app/backend/core but uploads should be in /app/backend/uploads
+        # Using os.path.basename() for portability across different OS path separators
+        if os.path.basename(root_path) == "core":
+            root_path = os.path.dirname(root_path)
+        
+        # Handle absolute paths in UPLOAD_FOLDER
+        if os.path.isabs(upload_folder):
+            return upload_folder
+        
         return os.path.join(root_path, upload_folder)
 
     def list_files(
@@ -888,18 +899,28 @@ class FileService:
         folder_path = os.path.join(base_path, parent_path.lstrip("/"), folder_name)
 
         try:
-            # Ensure base path exists first
+            # Ensure base path exists first with proper permissions
+            # Create parent directories recursively if needed
             os.makedirs(base_path, mode=0o755, exist_ok=True)
             # Create folder with proper permissions
             os.makedirs(folder_path, mode=0o755, exist_ok=True)
+            
+            # Verify the directory was created successfully
+            if not os.path.isdir(folder_path):
+                return False, f"Failed to create folder: directory was not created", None
+            
             return True, None, {
                 "name": folder_name,
                 "path": folder_path,
                 "created_at": datetime.utcnow().isoformat(),
             }
         except PermissionError as e:
-            self.logger.error(f"Permission denied creating folder: {e}")
+            self.logger.error(f"Permission denied creating folder at {folder_path}: {e}")
+            self.logger.error(f"Base path: {base_path}, Root upload path: {self.get_upload_path()}")
             return False, f"Permission denied: {str(e)}", None
+        except OSError as e:
+            self.logger.error(f"OS error creating folder at {folder_path}: {e}")
+            return False, f"Failed to create folder: {str(e)}", None
         except Exception as e:
             self.logger.error(f"Error creating folder: {e}")
             return False, f"Failed to create folder: {str(e)}", None

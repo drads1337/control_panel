@@ -86,7 +86,11 @@ def get_loaders():
         result = []
 
         for agent in agents:
-            uploads_dir = os.path.join(current_app.root_path, "uploads", "products")
+            # Fix path: if root_path ends with 'core', go up one level
+            root_path = current_app.root_path
+            if os.path.basename(root_path) == "core":
+                root_path = os.path.dirname(root_path)
+            uploads_dir = os.path.join(root_path, "uploads", "products")
 
             file_path = None
             if agent.file and agent.file != "0" and agent.file != "":
@@ -336,7 +340,11 @@ def create_loader(validated_data=None):
         
         # Если файл не был передан, создаем пустой файл автоматически
         if not file_name:
-            upload_path = os.path.join(current_app.root_path, "uploads", "agents")
+            # Fix path: if root_path ends with 'core', go up one level
+            root_path = current_app.root_path
+            if os.path.basename(root_path) == "core":
+                root_path = os.path.dirname(root_path)
+            upload_path = os.path.join(root_path, "uploads", "agents")
             os.makedirs(upload_path, exist_ok=True)
             
             # Создаем уникальное имя файла с ID агента
@@ -831,7 +839,11 @@ def upload_loader_files(agent_identifier):
                     filename = secure_filename(file.filename)
                     unique_filename = f"{file_type}_{agent.id}_{uuid.uuid4().hex}_{filename}"
 
-                    upload_path = os.path.join(current_app.root_path, "uploads", "agents")
+                    # Fix path: if root_path ends with 'core', go up one level
+                    root_path = current_app.root_path
+                    if os.path.basename(root_path) == "core":
+                        root_path = os.path.dirname(root_path)
+                    upload_path = os.path.join(root_path, "uploads", "agents")
                     os.makedirs(upload_path, exist_ok=True)
 
                     file_path = os.path.join(upload_path, unique_filename)

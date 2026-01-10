@@ -332,10 +332,17 @@ def verify_project_certificate_from_request(project_id: str):
 
     cert_pem = _mtls_validator.get_client_certificate_pem()
     if not cert_pem:
+        logger.warning(f"[MTLS_PROJECT_CHECK] No client certificate provided for project {project_id}")
         return False, "Client certificate not provided", None
 
+    logger.info(f"[MTLS_PROJECT_CHECK] Verifying certificate for project {project_id}, cert_length={len(cert_pem)}")
     manager = MTLSProjectManager()
-    return manager.verify_certificate_for_project(str(project_id), cert_pem)
+    is_valid, msg, cn = manager.verify_certificate_for_project(str(project_id), cert_pem)
+    if not is_valid:
+        logger.warning(f"[MTLS_PROJECT_CHECK] Certificate validation failed for project {project_id}: {msg}, cn={cn}")
+    else:
+        logger.info(f"[MTLS_PROJECT_CHECK] Certificate validation successful for project {project_id}, cn={cn}")
+    return is_valid, msg, cn
 
 
 def get_client_certificate_cn() -> Optional[str]:
