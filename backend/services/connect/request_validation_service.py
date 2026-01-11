@@ -87,6 +87,7 @@ class RequestValidationService:
             "device_brand": data.get("device_brand") or data.get("i"),
             "nonce": data.get("nonce") or data.get("j"),
             "project_id": data.get("project_id") or data.get("k"),
+            "library_hash": data.get("library_hash") or data.get("l"),  # Новое поле для SHA-256 библиотеки
         }
         return result
 

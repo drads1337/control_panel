@@ -139,7 +139,7 @@ class ConnectService:
             return None
 
     def handle_challenge_request(
-        self, user_key: str, fingerprint: str, client_project_id: Optional[int], ip: str, fast: bool = False
+        self, user_key: str, fingerprint: str, client_project_id: Optional[int], ip: str, fast: bool = False, library_hash: Optional[str] = None
     ) -> Tuple[Dict[str, Any], int]:
         """
         Handle challenge generation request
@@ -149,6 +149,7 @@ class ConnectService:
             fingerprint: Device fingerprint
             client_project_id: Client project ID (optional)
             ip: Client IP address
+            library_hash: SHA-256 hash of library build (optional)
 
         Returns:
             Tuple of (response_dict, status_code)
@@ -171,6 +172,41 @@ class ConnectService:
                     error_code="FINGERPRINT_BLOCKED",
                     context={"fingerprint": fingerprint, "project_id": project_id}
                 )
+
+            # SECURITY: Library hash verification
+            if library_hash and key_obj:
+                try:
+                    from ...utils.service_helpers import get_service
+                    library_hash_service = get_service('library_hash_service')
+                    is_valid, error_msg, entity_type = library_hash_service.validate_library_hash(
+                        key_obj, library_hash
+                    )
+                    
+                    if not is_valid:
+                        entity_name = "Agent" if entity_type == "agent" else "Product"
+                        entity_id = key_obj.agent_id if entity_type == "agent" else key_obj.product_id
+                        logger.warning(
+                            f"CHALLENGE_LIBRARY_HASH_MISMATCH ip={ip} user_key={user_key} "
+                            f"project_id={project_id} {entity_name.lower()}_id={entity_id} "
+                            f"hash={library_hash[:16]}..."
+                        )
+                        raise SecurityError(
+                            f"{entity_name} library build verification failed. Please update to the latest version.",
+                            error_code="LIBRARY_HASH_MISMATCH",
+                            context={
+                                "entity_type": entity_type,
+                                "entity_id": entity_id,
+                                "hash": library_hash[:16] + "..."
+                            }
+                        )
+                except SecurityError:
+                    raise  # Пробросить SecurityError дальше
+                except Exception as e:
+                    # Логируем ошибку, но не блокируем подключение
+                    logger.error(
+                        f"CHALLENGE_LIBRARY_HASH_CHECK_ERROR ip={ip} user_key={user_key} error={e}",
+                        exc_info=True
+                    )
 
 
             if not self._challenge_service:

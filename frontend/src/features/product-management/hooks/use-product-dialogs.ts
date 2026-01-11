@@ -8,6 +8,7 @@ export function useProductDialogs() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showChangelogDialog, setShowChangelogDialog] = useState(false);
+  const [showLibraryHashDialog, setShowLibraryHashDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const openCreateDialog = useCallback(() => {
@@ -39,6 +40,11 @@ export function useProductDialogs() {
     setShowChangelogDialog(true);
   }, []);
 
+  const openLibraryHashDialog = useCallback((product: Product) => {
+    setSelectedProduct(product);
+    setShowLibraryHashDialog(true);
+  }, []);
+
   const closeAllDialogs = useCallback(() => {
     setShowEditDialog(false);
     setShowUploadDialog(false);
@@ -46,6 +52,7 @@ export function useProductDialogs() {
     setShowPricesDialog(false);
     setShowCreateDialog(false);
     setShowChangelogDialog(false);
+    setShowLibraryHashDialog(false);
     setSelectedProduct(null);
   }, []);
 
@@ -57,6 +64,7 @@ export function useProductDialogs() {
     showUploadDialog,
     showEditDialog,
     showChangelogDialog,
+    showLibraryHashDialog,
     selectedProduct,
     // Actions
     openCreateDialog,
@@ -65,6 +73,7 @@ export function useProductDialogs() {
     openNotificationsDialog,
     openPricesDialog,
     openChangelogDialog,
+    openLibraryHashDialog,
     closeAllDialogs,
     // Setters (for backward compatibility)
     setShowCreateDialog,
@@ -73,6 +82,7 @@ export function useProductDialogs() {
     setShowUploadDialog,
     setShowEditDialog,
     setShowChangelogDialog,
+    setShowLibraryHashDialog,
     setSelectedProduct,
   };
 }

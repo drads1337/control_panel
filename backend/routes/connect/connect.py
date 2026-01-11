@@ -51,6 +51,7 @@ def get_challenge():
     fingerprint = req_json.get("fingerprint")
     client_project_id = req_json.get("project_id")
     fast = bool(req_json.get("fast", False))
+    library_hash = req_json.get("library_hash")  # Новое поле для SHA-256 библиотеки
 
     if not user_key or not fingerprint:
         return jsonify({"error": "Missing user_key or fingerprint"}), 400
@@ -75,6 +76,7 @@ def get_challenge():
         client_project_id=client_project_id,
         ip=ip,
         fast=fast,
+        library_hash=library_hash,
     )
 
     return jsonify(response), status_code

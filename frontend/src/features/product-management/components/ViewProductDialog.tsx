@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Edit, Upload, DollarSign, Bell, FileText, X } from 'lucide-react'
+import { Edit, Upload, DollarSign, Bell, FileText, Shield, X } from 'lucide-react'
 import type { Product } from '@/entities/product'
 import { cn } from '@/lib/utils.ts'
 
@@ -29,6 +29,7 @@ interface ViewProductDialogProps {
   onPrices?: (product: Product) => void
   onNotifications?: (product: Product) => void
   onChangelog?: (product: Product) => void
+  onLibraryHash?: (product: Product) => void
   canUploadFiles?: boolean
   canManagePrices?: boolean
   canManageNotifications?: boolean
@@ -44,6 +45,7 @@ export default function ViewProductDialog({
   onPrices,
   onNotifications,
   onChangelog,
+  onLibraryHash,
   canUploadFiles = false,
   canManagePrices = false,
   canManageNotifications = false,
@@ -132,6 +134,9 @@ export default function ViewProductDialog({
               )}
               {onChangelog && canManageChangelog && (
                 <ActionButton icon={FileText} onClick={() => onChangelog(product)} title="Changelog" />
+              )}
+              {onLibraryHash && (
+                <ActionButton icon={Shield} onClick={() => onLibraryHash(product)} title="Library Hashes" />
               )}
             </div>
             

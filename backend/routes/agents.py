@@ -13,6 +13,7 @@ from ..middleware.validation import validate_request
 from ..models.core import User
 from ..models.products import Product
 from ..models.agents import Agent, AgentProductAssignment
+from ..models.library_hash import AgentLibraryBuildHash, AgentLibraryHashSettings
 from ..schemas.agent import (
     AgentCreateSchema,
     AgentLoginTypeUpdateSchema,
@@ -21,6 +22,7 @@ from ..schemas.agent import (
     AgentUpdateSchema,
 )
 from ..utils.service_helpers import get_service
+from ..utils.rbac_utils import RBACManager
 from ..config.config import Config
 
 agents_bp = Blueprint("agents", __name__)
@@ -1147,3 +1149,261 @@ def update_loader_config(agent_identifier, validated_data=None):
         current_app.logger.error(f"Error updating agent configuration: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "Failed to update agent configuration", "success": False}), 500
+
+# ============================================================================
+# Library Hash Management Routes
+# ============================================================================
+
+@agents_bp.route("/<agent_identifier>/library-hashes", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_agent_library_hashes(agent_identifier):
+    """Получить список разрешенных SHA-256 хэшей для агента"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user or not user.project_id:
+        return jsonify({"error": "User not found or not assigned to project"}), 404
+
+    agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
+    if not agent:
+        return jsonify({"error": "Agent not found"}), 404
+
+    try:
+        hashes = AgentLibraryBuildHash.query.filter_by(
+            agent_id=agent.id
+        ).order_by(AgentLibraryBuildHash.created_at.desc()).all()
+
+        return jsonify({
+            "hashes": [
+                {
+                    "id": h.id,
+                    "hash_sha256": h.hash_sha256,
+                    "version": h.version,
+                    "description": h.description,
+                    "is_active": h.is_active,
+                    "created_at": h.created_at.isoformat(),
+                    "created_by": h.created_by,
+                }
+                for h in hashes
+            ]
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent library hashes: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch library hashes"}), 500
+
+
+@agents_bp.route("/<agent_identifier>/library-hashes", methods=["POST"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def add_agent_library_hash(agent_identifier):
+    """Добавить новый разрешенный SHA-256 хэш для агента"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user or not user.project_id:
+        return jsonify({"error": "User not found or not assigned to project"}), 404
+
+    has_permission = RBACManager.has_permission(user.id, user.project_id, "agents.edit")
+    if not has_permission:
+        return jsonify({"error": "Permission denied"}), 403
+
+    agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
+    if not agent:
+        return jsonify({"error": "Agent not found"}), 404
+
+    data = request.get_json() or {}
+    hash_sha256 = data.get("hash_sha256", "").strip().lower()
+    version = data.get("version", "").strip()
+    description = data.get("description", "").strip()
+
+    if not hash_sha256:
+        return jsonify({"error": "hash_sha256 is required"}), 400
+
+    # Проверка формата SHA-256 (64 hex символа)
+    if len(hash_sha256) != 64 or not all(c in "0123456789abcdef" for c in hash_sha256):
+        return jsonify({"error": "Invalid hash format. SHA-256 must be 64 hexadecimal characters"}), 400
+
+    try:
+        # Проверить, не существует ли уже такой хэш
+        existing = AgentLibraryBuildHash.query.filter_by(
+            agent_id=agent.id, hash_sha256=hash_sha256
+        ).first()
+
+        if existing:
+            return jsonify({"error": "Hash already exists for this agent"}), 400
+
+        new_hash = AgentLibraryBuildHash(
+            agent_id=agent.id,
+            hash_sha256=hash_sha256,
+            version=version if version else None,
+            description=description if description else None,
+            created_by=user.id,
+            is_active=True,
+        )
+
+        db.session.add(new_hash)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Library hash added successfully",
+            "hash": {
+                "id": new_hash.id,
+                "hash_sha256": new_hash.hash_sha256,
+                "version": new_hash.version,
+                "description": new_hash.description,
+                "is_active": new_hash.is_active,
+                "created_at": new_hash.created_at.isoformat(),
+            },
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding agent library hash: {e}", exc_info=True)
+        return jsonify({"error": "Failed to add library hash"}), 500
+
+
+@agents_bp.route("/<agent_identifier>/library-hashes/<int:hash_id>", methods=["DELETE"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def delete_agent_library_hash(agent_identifier, hash_id):
+    """Удалить SHA-256 хэш для агента"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user or not user.project_id:
+        return jsonify({"error": "User not found or not assigned to project"}), 404
+
+    has_permission = RBACManager.has_permission(user.id, user.project_id, "agents.edit")
+    if not has_permission:
+        return jsonify({"error": "Permission denied"}), 403
+
+    agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
+    if not agent:
+        return jsonify({"error": "Agent not found"}), 404
+
+    try:
+        hash_obj = AgentLibraryBuildHash.query.filter_by(
+            id=hash_id, agent_id=agent.id
+        ).first()
+
+        if not hash_obj:
+            return jsonify({"error": "Hash not found"}), 404
+
+        db.session.delete(hash_obj)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Library hash deleted successfully",
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting agent library hash: {e}", exc_info=True)
+        return jsonify({"error": "Failed to delete library hash"}), 500
+
+
+@agents_bp.route("/<agent_identifier>/library-hash-settings", methods=["GET"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def get_agent_library_hash_settings(agent_identifier):
+    """Получить настройки проверки SHA-256 хэшей для агента"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user or not user.project_id:
+        return jsonify({"error": "User not found or not assigned to project"}), 404
+
+    agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
+    if not agent:
+        return jsonify({"error": "Agent not found"}), 404
+
+    try:
+        settings = AgentLibraryHashSettings.query.filter_by(
+            agent_id=agent.id
+        ).first()
+
+        if not settings:
+            # Создать настройки по умолчанию
+            settings = AgentLibraryHashSettings(
+                agent_id=agent.id,
+                library_hash_check_enabled=False,
+                mismatch_action="block",
+            )
+            db.session.add(settings)
+            db.session.commit()
+
+        return jsonify({
+            "library_hash_check_enabled": settings.library_hash_check_enabled,
+            "mismatch_action": settings.mismatch_action,
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching agent library hash settings: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch settings"}), 500
+
+
+@agents_bp.route("/<agent_identifier>/library-hash-settings", methods=["PUT"])
+@jwt_required()
+@require_project_with_grace_period
+@require_project_isolation
+def update_agent_library_hash_settings(agent_identifier):
+    """Обновить настройки проверки SHA-256 хэшей для агента"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user or not user.project_id:
+        return jsonify({"error": "User not found or not assigned to project"}), 404
+
+    has_permission = RBACManager.has_permission(user.id, user.project_id, "agents.edit")
+    if not has_permission:
+        return jsonify({"error": "Permission denied"}), 403
+
+    agent = find_agent_by_id_or_unique_id(agent_identifier, user.project_id)
+    if not agent:
+        return jsonify({"error": "Agent not found"}), 404
+
+    data = request.get_json() or {}
+    library_hash_check_enabled = data.get("library_hash_check_enabled", False)
+    mismatch_action = data.get("mismatch_action", "block")
+
+    if mismatch_action not in ["block", "warn"]:
+        return jsonify({"error": "mismatch_action must be 'block' or 'warn'"}), 400
+
+    try:
+        settings = AgentLibraryHashSettings.query.filter_by(
+            agent_id=agent.id
+        ).first()
+
+        if not settings:
+            settings = AgentLibraryHashSettings(
+                agent_id=agent.id,
+                library_hash_check_enabled=library_hash_check_enabled,
+                mismatch_action=mismatch_action,
+            )
+            db.session.add(settings)
+        else:
+            settings.library_hash_check_enabled = library_hash_check_enabled
+            settings.mismatch_action = mismatch_action
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Settings updated successfully",
+            "settings": {
+                "library_hash_check_enabled": settings.library_hash_check_enabled,
+                "mismatch_action": settings.mismatch_action,
+            },
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating agent library hash settings: {e}", exc_info=True)
+        return jsonify({"error": "Failed to update settings"}), 500

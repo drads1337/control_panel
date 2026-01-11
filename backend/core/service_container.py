@@ -603,6 +603,9 @@ def init_services(app):
     from ..services.files.file_service import FileService
     container.register('file_service', lambda: FileService(), scope=ServiceScope.SINGLETON)
     
+    from ..services.library_hash.library_hash_service import LibraryHashService
+    container.register('library_hash_service', lambda: LibraryHashService(), scope=ServiceScope.SINGLETON)
+    
 
     from ..services.balance.balance_service import BalanceService
 

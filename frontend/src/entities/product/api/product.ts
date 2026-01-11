@@ -84,3 +84,48 @@ export async function toggleUserProductAccess(userId: number, productId: number)
   return apiCall(() => api.post(`/api/users/${userId}/products/${productId}/toggle`))
 }
 
+// Library Hash Management API
+export interface LibraryHash {
+  id: number;
+  hash_sha256: string;
+  version?: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  created_by?: number;
+}
+
+export interface LibraryHashSettings {
+  library_hash_check_enabled: boolean;
+  mismatch_action: 'block' | 'warn';
+}
+
+export async function getProductLibraryHashes(productId: number | string): Promise<{ hashes: LibraryHash[] }> {
+  return apiCall(() => api.get(`${API_ENDPOINTS.PRODUCTS}/${productId}/library-hashes`))
+}
+
+export async function addProductLibraryHash(
+  productId: number | string,
+  data: { hash_sha256: string; version?: string; description?: string }
+): Promise<{ success: boolean; message: string; hash: LibraryHash }> {
+  return apiCall(() => api.post(`${API_ENDPOINTS.PRODUCTS}/${productId}/library-hashes`, data))
+}
+
+export async function deleteProductLibraryHash(
+  productId: number | string,
+  hashId: number
+): Promise<{ success: boolean; message: string }> {
+  return apiCall(() => api.delete(`${API_ENDPOINTS.PRODUCTS}/${productId}/library-hashes/${hashId}`))
+}
+
+export async function getProductLibraryHashSettings(productId: number | string): Promise<LibraryHashSettings> {
+  return apiCall(() => api.get(`${API_ENDPOINTS.PRODUCTS}/${productId}/library-hash-settings`))
+}
+
+export async function updateProductLibraryHashSettings(
+  productId: number | string,
+  settings: LibraryHashSettings
+): Promise<{ success: boolean; message: string; settings: LibraryHashSettings }> {
+  return apiCall(() => api.put(`${API_ENDPOINTS.PRODUCTS}/${productId}/library-hash-settings`, settings))
+}
+

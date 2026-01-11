@@ -362,6 +362,38 @@ std::string decryptWithMasterKey(const std::string& encryptedB64, const std::str
 // Forward declarations
 std::string sha256(const std::string& data);
 
+// Функция для вычисления SHA-256 хэша библиотеки
+// ВАЖНО: В реальной реализации этот хэш должен вычисляться при сборке
+// и встраиваться в бинарник. Для примера используется функция-заглушка.
+std::string calculate_library_hash() {
+    // Вариант 1: Встроенный хэш (рекомендуется)
+    // Хэш вычисляется при сборке через скрипт и встраивается как константа
+    // #define LIBRARY_SHA256 "a1b2c3d4e5f6..."
+    // return std::string(LIBRARY_SHA256);
+    
+    // Вариант 2: Вычисление хэша сегмента кода в памяти (для примера)
+    // ВНИМАНИЕ: Это менее надежно, так как зависит от загрузчика
+    void* code_start = reinterpret_cast<void*>(&calculate_library_hash);
+    // Примерный размер сегмента кода (нужно подобрать в зависимости от архитектуры)
+    size_t code_size = 0x10000;  // 64 KB
+    
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX ctx;
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, code_start, code_size);
+    SHA256_Final(hash, &ctx);
+    
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i)
+        oss << std::setw(2) << static_cast<int>(hash[i]);
+    return oss.str();
+    
+    // Вариант 3: Использовать предвычисленный хэш бинарника
+    // Можно вычислить SHA-256 .so/.dll файла при загрузке библиотеки
+    // Это более надежный вариант для динамических библиотек
+}
+
 // ------------------ mTLS CSR ------------------
 struct MtlsCertPaths {
     std::string cert_path;
@@ -860,11 +892,14 @@ ChallengeResult get_challenge(const std::string& user_key, const std::string& fi
     ChallengeResult r;
     LOGI("[Challenge] Using mTLS session with cert=%s key=%s ca=%s", mtls.cert_path.c_str(), mtls.key_path.c_str(), mtls.ca_path.empty() ? "none" : mtls.ca_path.c_str());
     session.SetUrl(std::string(SERVER_URL) + "/api/challenge");
+    std::string lib_hash = calculate_library_hash();
     nlohmann::json body = {
         {"user_key", user_key},
         {"fingerprint", fingerprint},
-        {"project_id", PROJECT_ID}
+        {"project_id", PROJECT_ID},
+        {"library_hash", lib_hash}  // Добавляем SHA-256 хэш библиотеки
     };
+    LOGI("[Challenge] Library hash: %s", lib_hash.c_str());
     session.SetBody(cpr::Body{body.dump()});
     LOGI("[Challenge] POST /api/challenge with project_id=%s", PROJECT_ID);
     cpr::Response resp = session.Post();
@@ -979,6 +1014,7 @@ ConnectResult do_connect(const std::string& user_key,
     const MtlsCertPaths& mtls,
     cpr::Session& session) {
 ConnectResult r;
+std::string lib_hash = calculate_library_hash();
 nlohmann::json data;
 data["a"] = user_key;
 data["b"] = sha256(challenge);
@@ -991,6 +1027,8 @@ data["h"] = fingerprint.substr(0, 8);
 data["i"] = fingerprint.substr(8, 8);
 data["j"] = random_hex(16);
 data["k"] = PROJECT_ID;
+data["l"] = lib_hash;  // Добавляем SHA-256 хэш библиотеки (поле "l" для обратной совместимости)
+LOGW("[Connect] Library hash: %s", lib_hash.c_str());
 
 std::string blob = encryptWithMasterKey(data.dump(), MASTER_KEY_HEX);
 

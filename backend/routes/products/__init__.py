@@ -15,6 +15,7 @@ from flask import Blueprint
 
 from .bulk_operations import bulk_operations_bp
 from .files import files_bp
+from .library_hashes import library_hashes_bp
 
 from .management import management_bp
 from .prices import prices_bp
@@ -25,5 +26,6 @@ products_bp.register_blueprint(management_bp)
 products_bp.register_blueprint(prices_bp)
 products_bp.register_blueprint(files_bp)
 products_bp.register_blueprint(bulk_operations_bp)
+products_bp.register_blueprint(library_hashes_bp)
 
 __all__ = ["products_bp"]

@@ -1,64 +1,40 @@
 """
-CORS configuration module
-Centralizes CORS setup and eliminates duplication
+CORS Configuration Module
+Centralizes CORS setup and eliminates duplication.
 
 SECURITY NOTE:
 ==============
-This module centralizes all CORS configuration to prevent security vulnerabilities.
-
-HISTORICAL ISSUE (FIXED):
--------------------------
-In previous versions, there was a risk of CORS configuration duplication:
-- Custom @app.after_request handlers manually setting CORS headers
-- Flask-CORS extension also handling CORS
-- This duplication could lead to:
-  * Inconsistent CORS policies
-  * Potential security vulnerabilities (allowing untrusted origins)
-  * Data leakage risks from misconfigured CORS
-
-CURRENT IMPLEMENTATION:
-----------------------
-- Single source of truth: Only Flask-CORS is used
-- Environment-based configuration (FLASK_ENV)
-- Explicit origin whitelist (no wildcards in production)
-- All CORS logic centralized in this module
-- Custom @app.after_request handlers for CORS have been removed
+This module is the SINGLE SOURCE OF TRUTH for CORS configuration.
+- Prevents inconsistent policies.
+- Prevents potential security vulnerabilities.
+- Explicit origin whitelist (no wildcards in production).
 
 IMPORTANT:
-----------
-- DO NOT add custom CORS headers in route handlers
-- DO NOT use @app.after_request for CORS
-- DO NOT manually set Access-Control-* headers
-- All CORS configuration must go through this module
-- OPTIONS handlers in routes should only return empty responses (Flask-CORS handles headers)
+- DO NOT add custom CORS headers in route handlers.
+- DO NOT use @app.after_request for CORS.
 """
 
-from flask import Flask, request
+import logging
+import os
+import socket
+from typing import List
+
+from flask import Flask
 from flask_cors import CORS
 
 from .config import Config
 
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+
 def setup_cors(app: Flask) -> None:
     """
-    Configure CORS for the application
-    Simplified CORS configuration to eliminate duplication and security risks
+    Configure CORS for the application.
 
-    This function is the SINGLE SOURCE OF TRUTH for CORS configuration.
-    All CORS headers are handled automatically by Flask-CORS.
-
-    Security features:
-    - Explicit origin whitelist (no wildcards)
-    - Environment-based configuration
-    - Credentials support for httpOnly cookies
-    - CSRF token support
-
-    Args:
+    Arguments:
         app: Flask application instance
-
-    Raises:
-        None (failures are logged but don't prevent app startup)
     """
-
     allowed_origins = _get_allowed_origins()
 
     CORS(
@@ -87,62 +63,47 @@ def setup_cors(app: Flask) -> None:
         send_wildcard=False,
     )
 
-    import logging
-
-    logger = logging.getLogger(__name__)
     logger.info(
-        f"CORS configured with {len(allowed_origins)} origins: {allowed_origins[:3] if len(allowed_origins) > 3 else allowed_origins}"
+        f"CORS configured with {len(allowed_origins)} origins. "
+        f"Sample: {allowed_origins[:3] if len(allowed_origins) > 3 else allowed_origins}"
     )
 
-def _get_allowed_origins():
+
+def _get_allowed_origins() -> List[str]:
     """
-    Get allowed CORS origins based on environment
-    More restrictive origin validation with dynamic IP detection
+    Get allowed CORS origins based on environment.
 
-    SECURITY:
-    - Development: Allows localhost and local network IPs
-    - Production: Only allows explicitly configured origins from environment
-    - No wildcards are used (send_wildcard=False)
-    - Prevents unauthorized cross-origin access
-
-    Returns:
-        list: List of allowed origin strings
+    Security:
+    - Development: Allows localhost, specific LAN IPs, and dynamic local IP.
+    - Production: Only allows explicitly configured origins from Config.
     """
-    import os
-    import socket
-
     env = os.environ.get("FLASK_ENV", "development")
-
+    
+    # Normalizing env check
     if env not in ["production", "staging"]:
         env = "development"
 
     if env == "development":
-
+        # Base development origins
         dev_origins = [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://localhost:5001",
-            "http://localhost:5173",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "http://127.0.0.1:5001",
-            "http://127.0.0.1:5173",
-            "http://192.168.1.58:3000",
-            "http://192.168.1.58:3001",
-            "http://192.168.1.58:5001",
-            "http://192.168.1.58:5173",
-            "http://192.168.1.30:3000",
-            "http://192.168.1.30:3001",
-            "http://192.168.1.30:5001",
-            "http://192.168.1.30:5173",
-            "http://192.168.1.7:3000",
-            "http://192.168.1.7:3001",
-            "http://192.168.1.7:5001",
-            "http://192.168.1.7:5173",
+            # Localhost variants
+            "http://localhost:3000", "http://localhost:3001", 
+            "http://localhost:5001", "http://localhost:5173",
+            "http://127.0.0.1:3000", "http://127.0.0.1:3001", 
+            "http://127.0.0.1:5001", "http://127.0.0.1:5173",
+            
+            # Hardcoded LAN IPs (Specific to dev environment)
+            "http://192.168.1.58:3000", "http://192.168.1.58:3001",
+            "http://192.168.1.58:5001", "http://192.168.1.58:5173",
+            "http://192.168.1.30:3000", "http://192.168.1.30:3001",
+            "http://192.168.1.30:5001", "http://192.168.1.30:5173",
+            "http://192.168.1.7:3000", "http://192.168.1.7:3001",
+            "http://192.168.1.7:5001", "http://192.168.1.7:5173",
         ]
 
+        # Dynamic Local IP Detection
         try:
-
+            # Create a dummy socket connection to detect the interface IP used for routing
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
@@ -156,13 +117,12 @@ def _get_allowed_origins():
             ]
             dev_origins.extend(dynamic_origins)
         except Exception as e:
-            import logging
+            logger.warning(f"Could not detect local IP for CORS: {e}")
 
-            logging.warning(f"Could not detect local IP for CORS: {e}")
-
+        # Combine with Config origins and remove duplicates
         dev_origins.extend(Config.ALL_CORS_ORIGINS)
-
         return list(set(dev_origins))
-    else:
 
+    else:
+        # Production: Strict whitelist
         return Config.ALL_CORS_ORIGINS

@@ -5,6 +5,7 @@ import UploadAgentFilesDialog from './UploadAgentFilesDialog'
 import ViewAgentDialog from './ViewAgentDialog'
 import AgentConfigDialog from './AgentConfigDialog'
 import AssignProductsDialog from './AssignProductsDialog'
+import LibraryHashManager from './LibraryHashManager'
 import { NotificationsDialog } from '@/features/notifications'
 import { ChangelogManagementDialog } from '@/features/changelog'
 import type { Agent } from '@/entities/agent'
@@ -19,6 +20,7 @@ interface AgentManagerDialogsProps {
   showAssignProductsDialog: boolean
   showNotificationsDialog: boolean
   showChangelogDialog: boolean
+  showLibraryHashDialog: boolean
   selectedAgent: Agent | null
 
   canEditAgents: boolean
@@ -41,6 +43,7 @@ interface AgentManagerDialogsProps {
   setShowAssignProductsDialog: (open: boolean) => void
   setShowNotificationsDialog: (open: boolean) => void
   setShowChangelogDialog: (open: boolean) => void
+  setShowLibraryHashDialog: (open: boolean) => void
   setSelectedAgent: (agent: Agent | null) => void
   closeAllDialogs: () => void
 
@@ -58,6 +61,7 @@ export function AgentManagerDialogs({
   showAssignProductsDialog,
   showNotificationsDialog,
   showChangelogDialog,
+  showLibraryHashDialog,
   selectedAgent,
   canEditAgents,
   canCreateAgents,
@@ -78,6 +82,7 @@ export function AgentManagerDialogs({
   setShowAssignProductsDialog,
   setShowNotificationsDialog,
   setShowChangelogDialog,
+  setShowLibraryHashDialog,
   setSelectedAgent,
   closeAllDialogs,
   onSuccess,
@@ -119,6 +124,11 @@ export function AgentManagerDialogs({
           setShowDetailsDialog(false);
           setSelectedAgent(agent);
           setShowAssignProductsDialog(true);
+        } : undefined}
+        onLibraryHash={selectedAgent ? (agent) => {
+          setShowDetailsDialog(false);
+          setSelectedAgent(agent);
+          setShowLibraryHashDialog(true);
         } : undefined}
         canEdit={canEditAgents}
         canUploadFiles={canUploadFiles}
@@ -190,6 +200,14 @@ export function AgentManagerDialogs({
           onOpenChange={setShowChangelogDialog}
           product={selectedAgent as unknown as Product}
           isAgent={true}
+        />
+      )}
+
+      {canEditAgents && (
+        <LibraryHashManager
+          open={showLibraryHashDialog && !!selectedAgent}
+          onOpenChange={setShowLibraryHashDialog}
+          agentId={selectedAgent?.id}
         />
       )}
     </>

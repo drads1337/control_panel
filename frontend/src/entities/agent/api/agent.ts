@@ -95,3 +95,35 @@ export async function uploadAgentFiles(agentId: number, files: FormData): Promis
   return apiCall(() => api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/files`, files))
 }
 
+// Library Hash Management API (reuse types from product)
+export type { LibraryHash, LibraryHashSettings } from '@/entities/product/api/product'
+
+export async function getAgentLibraryHashes(agentId: number | string): Promise<{ hashes: import('@/entities/product/api/product').LibraryHash[] }> {
+  return apiCall(() => api.get(`${API_ENDPOINTS.AGENTS}/${agentId}/library-hashes`))
+}
+
+export async function addAgentLibraryHash(
+  agentId: number | string,
+  data: { hash_sha256: string; version?: string; description?: string }
+): Promise<{ success: boolean; message: string; hash: import('@/entities/product/api/product').LibraryHash }> {
+  return apiCall(() => api.post(`${API_ENDPOINTS.AGENTS}/${agentId}/library-hashes`, data))
+}
+
+export async function deleteAgentLibraryHash(
+  agentId: number | string,
+  hashId: number
+): Promise<{ success: boolean; message: string }> {
+  return apiCall(() => api.delete(`${API_ENDPOINTS.AGENTS}/${agentId}/library-hashes/${hashId}`))
+}
+
+export async function getAgentLibraryHashSettings(agentId: number | string): Promise<import('@/entities/product/api/product').LibraryHashSettings> {
+  return apiCall(() => api.get(`${API_ENDPOINTS.AGENTS}/${agentId}/library-hash-settings`))
+}
+
+export async function updateAgentLibraryHashSettings(
+  agentId: number | string,
+  settings: import('@/entities/product/api/product').LibraryHashSettings
+): Promise<{ success: boolean; message: string; settings: import('@/entities/product/api/product').LibraryHashSettings }> {
+  return apiCall(() => api.put(`${API_ENDPOINTS.AGENTS}/${agentId}/library-hash-settings`, settings))
+}
+

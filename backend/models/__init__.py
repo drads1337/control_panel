@@ -124,6 +124,13 @@ from .agents import (
     AgentProductAssignment,
 )
 
+from .library_hash import (
+    AgentLibraryBuildHash,
+    AgentLibraryHashSettings,
+    ProductLibraryBuildHash,
+    ProductLibraryHashSettings,
+)
+
 from .rbac import (
     AttributeRule,
     Permission,
@@ -217,6 +224,11 @@ __all__ = [
     "AgentDownloadLog",
     "AgentNotification",
     "AgentProductAssignment",
+
+    "AgentLibraryBuildHash",
+    "AgentLibraryHashSettings",
+    "ProductLibraryBuildHash",
+    "ProductLibraryHashSettings",
 
     "AttributeRule",
     "Permission",

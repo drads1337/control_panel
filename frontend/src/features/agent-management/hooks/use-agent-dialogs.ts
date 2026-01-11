@@ -10,6 +10,7 @@ export function useAgentDialogs() {
   const [showAssignProductsDialog, setShowAssignProductsDialog] = useState(false);
   const [showNotificationsDialog, setShowNotificationsDialog] = useState(false);
   const [showChangelogDialog, setShowChangelogDialog] = useState(false);
+  const [showLibraryHashDialog, setShowLibraryHashDialog] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   const openCreateDialog = useCallback(() => {
@@ -51,6 +52,11 @@ export function useAgentDialogs() {
     setShowChangelogDialog(true);
   }, []);
 
+  const openLibraryHashDialog = useCallback((agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowLibraryHashDialog(true);
+  }, []);
+
   const closeAllDialogs = useCallback(() => {
     setShowCreateDialog(false);
     setShowEditDialog(false);
@@ -60,6 +66,7 @@ export function useAgentDialogs() {
     setShowAssignProductsDialog(false);
     setShowNotificationsDialog(false);
     setShowChangelogDialog(false);
+    setShowLibraryHashDialog(false);
     setSelectedAgent(null);
   }, []);
 
@@ -73,6 +80,7 @@ export function useAgentDialogs() {
     showAssignProductsDialog,
     showNotificationsDialog,
     showChangelogDialog,
+    showLibraryHashDialog,
     selectedAgent,
     // Actions
     openCreateDialog,
@@ -83,6 +91,7 @@ export function useAgentDialogs() {
     openAssignProductsDialog,
     openNotificationsDialog,
     openChangelogDialog,
+    openLibraryHashDialog,
     closeAllDialogs,
     // Setters (for backward compatibility)
     setShowCreateDialog,
@@ -93,6 +102,7 @@ export function useAgentDialogs() {
     setShowAssignProductsDialog,
     setShowNotificationsDialog,
     setShowChangelogDialog,
+    setShowLibraryHashDialog,
     setSelectedAgent,
   };
 }

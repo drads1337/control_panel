@@ -110,6 +110,7 @@ export default function ProductDatabase({
     showUploadDialog,
     showEditDialog,
     showChangelogDialog,
+    showLibraryHashDialog,
     selectedProduct,
     openCreateDialog,
     openEditDialog,
@@ -117,6 +118,7 @@ export default function ProductDatabase({
     openNotificationsDialog,
     openPricesDialog,
     openChangelogDialog,
+    openLibraryHashDialog,
     closeAllDialogs,
     setShowCreateDialog,
     setShowEditDialog,
@@ -124,6 +126,7 @@ export default function ProductDatabase({
     setShowPricesDialog,
     setShowNotificationsDialog,
     setShowChangelogDialog,
+    setShowLibraryHashDialog,
     setSelectedProduct,
   } = useProductDialogs();
 
@@ -139,6 +142,7 @@ export default function ProductDatabase({
   const handleNotificationsProduct = (product: Product) => openNotificationsDialog(product);
   const handlePricesProduct = (product: Product) => openPricesDialog(product);
   const handleChangelogProduct = (product: Product) => openChangelogDialog(product);
+  const handleLibraryHashProduct = (product: Product) => openLibraryHashDialog(product);
 
   useEffect(() => {
     if (onCreateProductRequested) {
@@ -218,6 +222,7 @@ export default function ProductDatabase({
           showPricesDialog={showPricesDialog}
           showNotificationsDialog={showNotificationsDialog}
           showChangelogDialog={showChangelogDialog}
+          showLibraryHashDialog={showLibraryHashDialog}
           selectedProduct={selectedProduct}
           canEditProducts={canEditProducts}
           canCreateProducts={canCreateProducts}
@@ -231,6 +236,7 @@ export default function ProductDatabase({
           setShowPricesDialog={setShowPricesDialog}
           setShowNotificationsDialog={setShowNotificationsDialog}
           setShowChangelogDialog={setShowChangelogDialog}
+          setShowLibraryHashDialog={setShowLibraryHashDialog}
           setSelectedProduct={setSelectedProduct}
           closeAllDialogs={closeAllDialogs}
           onSuccess={refetch}
@@ -432,6 +438,7 @@ export default function ProductDatabase({
         showPricesDialog={showPricesDialog}
         showNotificationsDialog={showNotificationsDialog}
         showChangelogDialog={showChangelogDialog}
+        showLibraryHashDialog={showLibraryHashDialog}
         selectedProduct={selectedProduct}
         canEditProducts={canEditProducts}
         canCreateProducts={canCreateProducts}
@@ -445,6 +452,7 @@ export default function ProductDatabase({
         setShowPricesDialog={setShowPricesDialog}
         setShowNotificationsDialog={setShowNotificationsDialog}
         setShowChangelogDialog={setShowChangelogDialog}
+        setShowLibraryHashDialog={setShowLibraryHashDialog}
         setSelectedProduct={setSelectedProduct}
         closeAllDialogs={closeAllDialogs}
         onSuccess={refetch}
@@ -458,6 +466,10 @@ export default function ProductDatabase({
         onEdit={selectedProductForDetail ? (product) => {
           setDetailsDialogOpen(false);
           handleEditProduct(product);
+        } : undefined}
+        onLibraryHash={selectedProductForDetail ? (product) => {
+          setDetailsDialogOpen(false);
+          handleLibraryHashProduct(product);
         } : undefined}
       />
     </div>

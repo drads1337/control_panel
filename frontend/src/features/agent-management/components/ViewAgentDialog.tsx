@@ -13,7 +13,8 @@ import {
   Settings, 
   Database, 
   GitCommit, 
-  FileText 
+  FileText,
+  Shield
 } from 'lucide-react'
 import type { Agent } from '@/entities/agent'
 import { cn } from '@/lib/utils.ts'
@@ -42,6 +43,7 @@ interface ViewAgentDialogProps {
   onUpload?: (agent: Agent) => void
   onNotifications?: (agent: Agent) => void
   onChangelog?: (agent: Agent) => void
+  onLibraryHash?: (agent: Agent) => void
   // Permissions
   canEdit?: boolean
   canConfigure?: boolean
@@ -63,6 +65,7 @@ export default function ViewAgentDialog({
   onUpload,
   onNotifications,
   onChangelog,
+  onLibraryHash,
   canEdit = false,
   canConfigure = false,
   canAssignProducts = false,
@@ -183,6 +186,9 @@ export default function ViewAgentDialog({
                 )}
                 {onChangelog && canManageChangelog && (
                   <ActionButton icon={GitCommit} onClick={() => onChangelog(agent)} title="Changelog" />
+                )}
+                {onLibraryHash && (
+                  <ActionButton icon={Shield} onClick={() => onLibraryHash(agent)} title="Library Hashes" />
                 )}
               </div>
               

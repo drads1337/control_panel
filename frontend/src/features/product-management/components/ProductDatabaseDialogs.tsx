@@ -4,6 +4,7 @@ import CreateProductDialog from './CreateProductDialog'
 import ProductFileUploadDialog from './ProductFileUploadDialog'
 import ViewProductDialog from './ViewProductDialog'
 import PriceManager from './PriceManager'
+import LibraryHashManager from './LibraryHashManager'
 import { NotificationsDialog } from '@/features/notifications'
 import { ChangelogManagementDialog } from '@/features/changelog'
 import { useProductDialogStore } from '@/shared/model/use-product-dialog-store'
@@ -16,6 +17,7 @@ interface ProductDatabaseDialogsProps {
   showPricesDialog: boolean
   showNotificationsDialog: boolean
   showChangelogDialog: boolean
+  showLibraryHashDialog: boolean
 
   selectedProduct: Product | null
 
@@ -32,6 +34,7 @@ interface ProductDatabaseDialogsProps {
   setShowPricesDialog: (open: boolean) => void
   setShowNotificationsDialog: (open: boolean) => void
   setShowChangelogDialog: (open: boolean) => void
+  setShowLibraryHashDialog: (open: boolean) => void
   setSelectedProduct: (product: Product | null) => void
   closeAllDialogs: () => void
   onSuccess: () => void
@@ -45,6 +48,7 @@ export function ProductDatabaseDialogs({
   showPricesDialog,
   showNotificationsDialog,
   showChangelogDialog,
+  showLibraryHashDialog,
   selectedProduct,
   canEditProducts,
   canCreateProducts,
@@ -58,6 +62,7 @@ export function ProductDatabaseDialogs({
   setShowPricesDialog,
   setShowNotificationsDialog,
   setShowChangelogDialog,
+  setShowLibraryHashDialog,
   setSelectedProduct,
   closeAllDialogs,
   onSuccess,
@@ -95,6 +100,11 @@ export function ProductDatabaseDialogs({
           setViewProductDialogOpen(false);
           setSelectedProduct(product);
           setShowChangelogDialog(true);
+        } : undefined}
+        onLibraryHash={viewProduct ? (product) => {
+          setViewProductDialogOpen(false);
+          setSelectedProduct(product);
+          setShowLibraryHashDialog(true);
         } : undefined}
         canUploadFiles={canUploadFiles}
         canManagePrices={canManagePrices}
@@ -151,6 +161,14 @@ export function ProductDatabaseDialogs({
           onOpenChange={setShowChangelogDialog}
           product={selectedProduct}
           isAgent={false}
+        />
+      )}
+
+      {canEditProducts && (
+        <LibraryHashManager
+          open={showLibraryHashDialog && !!selectedProduct}
+          onOpenChange={setShowLibraryHashDialog}
+          productId={selectedProduct?.id}
         />
       )}
     </>

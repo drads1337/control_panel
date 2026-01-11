@@ -208,6 +208,50 @@ class ConnectOrchestrator:
                 )
                 return encrypted_response, 403
 
+            # SECURITY: Library hash verification
+            library_hash = fields.get("library_hash")
+            if library_hash:
+                try:
+                    from ...utils.service_helpers import get_service
+                    library_hash_service = get_service('library_hash_service')
+                    is_valid, error_msg, entity_type = library_hash_service.validate_library_hash(
+                        key_obj, library_hash
+                    )
+                    
+                    if not is_valid:
+                        entity_name = "Agent" if entity_type == "agent" else "Product"
+                        entity_id = key_obj.agent_id if entity_type == "agent" else key_obj.product_id
+                        logger.warning(
+                            f"LIBRARY_HASH_MISMATCH ip={ip} user_key={user_key} "
+                            f"project_id={project_id} {entity_name.lower()}_id={entity_id} "
+                            f"hash={library_hash[:16]}..."
+                        )
+                        self.security_checker.log_suspicious_activity(
+                            ip, "LIBRARY_HASH_MISMATCH", 
+                            f"{entity_name} hash={library_hash[:16]}..."
+                        )
+                        self._log_user_activity(
+                            key_obj, project_id, "api_connect_error",
+                            f"user_key={user_key}, reason=LIBRARY_HASH_MISMATCH", ip
+                        )
+                        error_response = self.response_builder.build_error_response(
+                            f"{entity_name} library build verification failed. Please update to the latest version.",
+                            project_id
+                        )
+                        encrypted_response = self.response_builder.encrypt_response(
+                            error_response,
+                            used_global_key=used_global_key,
+                            project_id=project_id,
+                            use_legacy=True,
+                        )
+                        return encrypted_response, 403
+                except Exception as e:
+                    # Логируем ошибку, но не блокируем подключение
+                    logger.error(
+                        f"LIBRARY_HASH_CHECK_ERROR ip={ip} user_key={user_key} error={e}",
+                        exc_info=True
+                    )
+
             # SECURITY: Certificate-Device binding verification (if mTLS is enabled)
             # This prevents certificate sharing across different devices
             try:

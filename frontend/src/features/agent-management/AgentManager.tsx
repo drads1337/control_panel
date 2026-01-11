@@ -108,6 +108,7 @@ export default function AgentManager({
     showAssignProductsDialog,
     showNotificationsDialog,
     showChangelogDialog,
+    showLibraryHashDialog,
     selectedAgent,
     openCreateDialog,
     openEditDialog,
@@ -117,6 +118,7 @@ export default function AgentManager({
     openAssignProductsDialog,
     openNotificationsDialog,
     openChangelogDialog,
+    openLibraryHashDialog,
     closeAllDialogs,
     setShowCreateDialog,
     setShowEditDialog,
@@ -126,6 +128,7 @@ export default function AgentManager({
     setShowAssignProductsDialog,
     setShowNotificationsDialog,
     setShowChangelogDialog,
+    setShowLibraryHashDialog,
     setSelectedAgent,
   } = useAgentDialogs();
 
@@ -134,6 +137,7 @@ export default function AgentManager({
   const handleUploadAgent = (agent: Agent) => openUploadDialog(agent);
   const handleConfigAgent = (agent: Agent) => openConfigDialog(agent);
   const handleAssignProductsAgent = (agent: Agent) => openAssignProductsDialog(agent);
+  const handleLibraryHashAgent = (agent: Agent) => openLibraryHashDialog(agent);
   const handleNotificationsAgent = (agent: Agent) => openNotificationsDialog(agent);
   const handleChangelogAgent = (agent: Agent) => openChangelogDialog(agent);
 
@@ -387,6 +391,7 @@ export default function AgentManager({
         showAssignProductsDialog={showAssignProductsDialog}
         showNotificationsDialog={showNotificationsDialog}
         showChangelogDialog={showChangelogDialog}
+        showLibraryHashDialog={showLibraryHashDialog}
         selectedAgent={selectedAgent}
         canEditAgents={canEditAgents}
         canCreateAgents={canCreateAgents}
@@ -407,6 +412,7 @@ export default function AgentManager({
         setShowAssignProductsDialog={setShowAssignProductsDialog}
         setShowNotificationsDialog={setShowNotificationsDialog}
         setShowChangelogDialog={setShowChangelogDialog}
+        setShowLibraryHashDialog={setShowLibraryHashDialog}
         setSelectedAgent={setSelectedAgent}
         closeAllDialogs={closeAllDialogs}
         onSuccess={() => {
