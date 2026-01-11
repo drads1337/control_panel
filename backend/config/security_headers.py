@@ -35,18 +35,18 @@ def setup_security_headers(app: Flask) -> None:
     if not csp_policy:
         # Define defaults and fetch overrides from environment
         directives = [
-            f"default-src {os.environ.get('CSP_DEFAULT_SRC', \"'self'\")}",
-            f"script-src {os.environ.get('CSP_SCRIPT_SRC', \"'self' 'unsafe-inline' 'unsafe-eval' https:\")}",
-            f"style-src {os.environ.get('CSP_STYLE_SRC', \"'self' 'unsafe-inline' https:\")}",
-            f"img-src {os.environ.get('CSP_IMG_SRC', \"'self' data: https: blob:\")}",
-            f"font-src {os.environ.get('CSP_FONT_SRC', \"'self' data: https:\")}",
-            f"connect-src {os.environ.get('CSP_CONNECT_SRC', \"'self' https: wss: ws:\")}",
-            f"frame-ancestors {os.environ.get('CSP_FRAME_ANCESTORS', \"'none'\")}",
-            f"base-uri {os.environ.get('CSP_BASE_URI', \"'self'\")}",
-            f"form-action {os.environ.get('CSP_FORM_ACTION', \"'self'\")}",
-            f"object-src {os.environ.get('CSP_OBJECT_SRC', \"'none'\")}",
-            f"media-src {os.environ.get('CSP_MEDIA_SRC', \"'self' https:\")}",
-            f"worker-src {os.environ.get('CSP_WORKER_SRC', \"'self' blob:\")}",
+            f'default-src {os.environ.get("CSP_DEFAULT_SRC", "\'self\'")}',
+            f'script-src {os.environ.get("CSP_SCRIPT_SRC", "\'self\' \'unsafe-inline\' \'unsafe-eval\' https:")}',
+            f'style-src {os.environ.get("CSP_STYLE_SRC", "\'self\' \'unsafe-inline\' https:")}',
+            f'img-src {os.environ.get("CSP_IMG_SRC", "\'self\' data: https: blob:")}',
+            f'font-src {os.environ.get("CSP_FONT_SRC", "\'self\' data: https:")}',
+            f'connect-src {os.environ.get("CSP_CONNECT_SRC", "\'self\' https: wss: ws:")}',
+            f'frame-ancestors {os.environ.get("CSP_FRAME_ANCESTORS", "\'none\'")}',
+            f'base-uri {os.environ.get("CSP_BASE_URI", "\'self\'")}',
+            f'form-action {os.environ.get("CSP_FORM_ACTION", "\'self\'")}',
+            f'object-src {os.environ.get("CSP_OBJECT_SRC", "\'none\'")}',
+            f'media-src {os.environ.get("CSP_MEDIA_SRC", "\'self\' https:")}',
+            f'worker-src {os.environ.get("CSP_WORKER_SRC", "\'self\' blob:")}',
         ]
 
         # Optional boolean flags
