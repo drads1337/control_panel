@@ -205,15 +205,24 @@ class SettingsManager:
                 },
             }
             
-            # Add project unique_id if project_id is provided
+            # Add project information if project_id is provided
             if project_id:
                 try:
                     from ...models.core import Project
+                    from datetime import datetime
                     project = Project.query.get(project_id)
-                    if project and project.unique_id:
+                    if project:
                         result["project_unique_id"] = project.unique_id
+                        result["project_status"] = project.status
+                        result["project_is_active"] = project.is_active
+                        result["project_subscription_status"] = project.subscription_status
+                        result["project_days_until_expiry"] = project.days_until_expiry
+                        if project.subscription_expires_at:
+                            result["project_subscription_expires_at"] = project.subscription_expires_at.isoformat()
+                        else:
+                            result["project_subscription_expires_at"] = None
                 except Exception as e:
-                    self.logger.warning(f"Could not get project unique_id for project {project_id}: {e}")
+                    self.logger.warning(f"Could not get project information for project {project_id}: {e}")
 
 
             try:

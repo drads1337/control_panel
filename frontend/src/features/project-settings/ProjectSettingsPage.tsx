@@ -1,14 +1,12 @@
 "use client"
 
-import React, { useState, useMemo, useCallback } from 'react'
-import { Shield, Key, RefreshCw, Settings2, Lock, Eye, EyeOff } from 'lucide-react'
+import React, { useState, useCallback } from 'react'
+import { RefreshCw, Eye, EyeOff, Palette, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getProjectSettings, updateProjectSettings, regenerateKeys, regenerateMasterKey } from '@/entities/settings'
 import { AccessDenied } from '@/shared/ui/components'
@@ -24,7 +22,6 @@ export default function ProjectSettingsPage() {
   const { hasPermission } = usePermissions()
   const queryClient = useQueryClient()
   
-  const [activeTab, setActiveTab] = useState('security')
   const [refreshing, setRefreshing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [localSettings, setLocalSettings] = useState<ProjectSettings | null>(null)
@@ -98,11 +95,9 @@ export default function ProjectSettingsPage() {
     
     setIsSaving(true)
     const updateData: UpdateSettingsData = {
-      security: localSettings.security,
-      security_features: localSettings.security_features,
       encryption: localSettings.encryption,
       offline_auth: localSettings.offline_auth,
-      appearance: localSettings.appearance,
+      appearance: localSettings.appearance || {},
     }
     
     updateMutation.mutate(updateData)
@@ -128,26 +123,6 @@ export default function ProjectSettingsPage() {
       },
     })
   }, [localSettings])
-
-  const availableTabs = useMemo(() => {
-    return [
-      {
-        value: 'security',
-        label: 'Security',
-        icon: Shield
-      },
-      {
-        value: 'encryption',
-        label: 'Encryption',
-        icon: Lock
-      },
-      {
-        value: 'keys',
-        label: 'Keys',
-        icon: Key
-      }
-    ]
-  }, [])
 
   if (!isInitialized) {
     return null
@@ -253,485 +228,444 @@ export default function ProjectSettingsPage() {
 
           {/* Settings Content */}
           <div className="px-4 lg:px-6 flex-1 flex flex-col overflow-hidden">
-            {availableTabs.length > 0 && (
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="relative mb-4">
-                  <TabsList 
-                    className="grid w-full h-12 bg-muted/30 border border-border rounded-lg p-1" 
-                    style={{gridTemplateColumns: `repeat(${availableTabs.length}, 1fr)`}}
-                  >
-                    {availableTabs.map((tab) => {
-                      const Icon = tab.icon
-                      return (
-                        <TabsTrigger 
-                          key={tab.value}
-                          value={tab.value} 
-                          className="flex items-center justify-center gap-2 text-xs sm:text-sm"
-                        >
-                          <Icon className="h-4 w-4" />
-                          <span className="hidden sm:inline">{tab.label}</span>
-                        </TabsTrigger>
-                      )
-                    })}
-                  </TabsList>
-                </div>
-
-                <TabsContent value="security" className="space-y-4 mt-0">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Security Settings</CardTitle>
-                      <CardDescription className="text-xs">
-                        Configure basic security parameters
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="min_password_length" className="text-xs">
-                            Minimum Password Length
-                          </Label>
-                          <Input
-                            id="min_password_length"
-                            type="number"
-                            min="4"
-                            max="128"
-                            value={localSettings.security.min_password_length}
-                            onChange={(e) => handleInputChange('security', 'min_password_length', parseInt(e.target.value) || 8)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="max_login_attempts" className="text-xs">
-                            Max Login Attempts
-                          </Label>
-                          <Input
-                            id="max_login_attempts"
-                            type="number"
-                            min="1"
-                            max="20"
-                            value={localSettings.security.max_login_attempts}
-                            onChange={(e) => handleInputChange('security', 'max_login_attempts', parseInt(e.target.value) || 5)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="ip_block_duration" className="text-xs">
-                            IP Block Duration (minutes)
-                          </Label>
-                          <Input
-                            id="ip_block_duration"
-                            type="number"
-                            min="1"
-                            value={localSettings.security.ip_block_duration_minutes}
-                            onChange={(e) => handleInputChange('security', 'ip_block_duration_minutes', parseInt(e.target.value) || 15)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="max_sessions" className="text-xs">
-                            Max Sessions Per User
-                          </Label>
-                          <Input
-                            id="max_sessions"
-                            type="number"
-                            min="1"
-                            max="50"
-                            value={localSettings.security.max_sessions_per_user}
-                            onChange={(e) => handleInputChange('security', 'max_sessions_per_user', parseInt(e.target.value) || 5)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="log_retention" className="text-xs">
-                            Log Retention (days)
-                          </Label>
-                          <Input
-                            id="log_retention"
-                            type="number"
-                            min="1"
-                            value={localSettings.security.log_retention_days}
-                            onChange={(e) => handleInputChange('security', 'log_retention_days', parseInt(e.target.value) || 60)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="security_log_level" className="text-xs">
-                            Security Log Level
-                          </Label>
-                          <Input
-                            id="security_log_level"
-                            value={localSettings.security.security_log_level}
-                            onChange={(e) => handleInputChange('security', 'security_log_level', e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Security Features</CardTitle>
-                      <CardDescription className="text-xs">
-                        Enable or disable security features
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="two_factor_auth" className="text-xs">
-                            Two-Factor Authentication Required
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Require 2FA for all users
-                          </p>
-                        </div>
-                        <Switch
-                          id="two_factor_auth"
-                          checked={localSettings.security_features.two_factor_auth_required}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'two_factor_auth_required', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="password_complexity" className="text-xs">
-                            Password Complexity Required
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Enforce complex password rules
-                          </p>
-                        </div>
-                        <Switch
-                          id="password_complexity"
-                          checked={localSettings.security_features.password_complexity_required}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'password_complexity_required', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="session_fingerprinting" className="text-xs">
-                            Session Fingerprinting
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Track device fingerprints
-                          </p>
-                        </div>
-                        <Switch
-                          id="session_fingerprinting"
-                          checked={localSettings.security_features.session_fingerprinting}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'session_fingerprinting', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="ip_whitelist_enabled" className="text-xs">
-                            IP Whitelist
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Restrict access to specific IPs
-                          </p>
-                        </div>
-                        <Switch
-                          id="ip_whitelist_enabled"
-                          checked={localSettings.security_features.ip_whitelist_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'ip_whitelist_enabled', checked)}
-                        />
-                      </div>
-                      {localSettings.security_features.ip_whitelist_enabled && (
-                        <div className="space-y-2">
-                          <Label htmlFor="ip_whitelist" className="text-xs">
-                            IP Whitelist (one per line)
-                          </Label>
-                          <Textarea
-                            id="ip_whitelist"
-                            value={localSettings.security_features.ip_whitelist || ''}
-                            onChange={(e) => handleInputChange('security_features', 'ip_whitelist', e.target.value)}
-                            className="min-h-[100px] text-xs"
-                            placeholder="192.168.1.1&#10;10.0.0.1"
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="rate_limiting" className="text-xs">
-                            Rate Limiting
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Limit request rate per minute
-                          </p>
-                        </div>
-                        <Switch
-                          id="rate_limiting"
-                          checked={localSettings.security_features.rate_limiting_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'rate_limiting_enabled', checked)}
-                        />
-                      </div>
-                      {localSettings.security_features.rate_limiting_enabled && (
-                        <div className="space-y-2">
-                          <Label htmlFor="rate_limit_requests" className="text-xs">
-                            Requests Per Minute
-                          </Label>
-                          <Input
-                            id="rate_limit_requests"
-                            type="number"
-                            min="1"
-                            value={localSettings.security_features.rate_limit_requests_per_minute}
-                            onChange={(e) => handleInputChange('security_features', 'rate_limit_requests_per_minute', parseInt(e.target.value) || 60)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="vpn_blocking" className="text-xs">
-                            VPN Blocking
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Block VPN connections
-                          </p>
-                        </div>
-                        <Switch
-                          id="vpn_blocking"
-                          checked={localSettings.security_features.vpn_blocking_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'vpn_blocking_enabled', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="security_logging" className="text-xs">
-                            Security Logging
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Log security events
-                          </p>
-                        </div>
-                        <Switch
-                          id="security_logging"
-                          checked={localSettings.security_features.security_logging_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'security_logging_enabled', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="suspicious_activity" className="text-xs">
-                            Suspicious Activity Check
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Monitor for suspicious behavior
-                          </p>
-                        </div>
-                        <Switch
-                          id="suspicious_activity"
-                          checked={localSettings.security_features.suspicious_activity_check_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'suspicious_activity_check_enabled', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="session_limiting" className="text-xs">
-                            Session Limiting
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Enforce session limits
-                          </p>
-                        </div>
-                        <Switch
-                          id="session_limiting"
-                          checked={localSettings.security_features.session_limiting_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'session_limiting_enabled', checked)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="auto_log_cleanup" className="text-xs">
-                            Auto Log Cleanup
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Automatically clean old logs
-                          </p>
-                        </div>
-                        <Switch
-                          id="auto_log_cleanup"
-                          checked={localSettings.security_features.auto_log_cleanup_enabled}
-                          onCheckedChange={(checked) => handleInputChange('security_features', 'auto_log_cleanup_enabled', checked)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="encryption" className="space-y-4 mt-0">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Encryption Settings</CardTitle>
-                      <CardDescription className="text-xs">
-                        Configure data encryption
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="encryption_enabled" className="text-xs">
-                            Encryption Enabled
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Enable data encryption
-                          </p>
-                        </div>
-                        <Switch
-                          id="encryption_enabled"
-                          checked={localSettings.encryption.encryption_enabled}
-                          onCheckedChange={(checked) => handleInputChange('encryption', 'encryption_enabled', checked)}
-                        />
-                      </div>
-                      {localSettings.encryption.encryption_enabled && (
-                        <>
-                          <div className="space-y-2">
-                            <Label htmlFor="encryption_algorithm" className="text-xs">
-                              Encryption Algorithm
-                            </Label>
-                            <Input
-                              id="encryption_algorithm"
-                              value={localSettings.encryption.encryption_algorithm}
-                              onChange={(e) => handleInputChange('encryption', 'encryption_algorithm', e.target.value)}
-                              className="h-8 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="key_rotation_days" className="text-xs">
-                              Key Rotation (days)
-                            </Label>
-                            <Input
-                              id="key_rotation_days"
-                              type="number"
-                              min="1"
-                              value={localSettings.encryption.key_rotation_days}
-                              onChange={(e) => handleInputChange('encryption', 'key_rotation_days', parseInt(e.target.value) || 90)}
-                              className="h-8 text-xs"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Offline Authentication</CardTitle>
-                      <CardDescription className="text-xs">
-                        Configure offline authentication settings
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="offline_auth_enabled" className="text-xs">
-                            Offline Auth Enabled
-                          </Label>
-                          <p className="text-[10px] text-muted-foreground">
-                            Allow offline authentication
-                          </p>
-                        </div>
-                        <Switch
-                          id="offline_auth_enabled"
-                          checked={localSettings.offline_auth.offline_auth_enabled}
-                          onCheckedChange={(checked) => handleInputChange('offline_auth', 'offline_auth_enabled', checked)}
-                        />
-                      </div>
-                      {localSettings.offline_auth.offline_auth_enabled && (
-                        <div className="space-y-2">
-                          <Label htmlFor="offline_ticket_expiration" className="text-xs">
-                            Ticket Expiration (hours)
-                          </Label>
-                          <Input
-                            id="offline_ticket_expiration"
-                            type="number"
-                            min="1"
-                            value={localSettings.offline_auth.offline_ticket_expiration_hours}
-                            onChange={(e) => handleInputChange('offline_auth', 'offline_ticket_expiration_hours', parseInt(e.target.value) || 12)}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="keys" className="space-y-4 mt-0">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Encryption Keys</CardTitle>
-                      <CardDescription className="text-xs">
-                        Manage encryption keys for your project
-                        {settings?.project_unique_id && (
-                          <span className="ml-2 font-mono text-foreground">(Unique ID: {settings.project_unique_id})</span>
+            <div className="space-y-4">
+              {/* Project Information Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Project Information
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Information about your project status and subscription
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Project Status</Label>
+                      <div className="flex items-center gap-2">
+                        {settings.project_is_active ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
                         )}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs">AES Key</Label>
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                            <Input
-                              type={showAesKey ? "text" : "password"}
-                              value={localSettings.encryption_keys.aes_key || ''}
-                              readOnly
-                              className="h-8 text-xs font-mono pr-10"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setShowAesKey(!showAesKey)}
-                              className="absolute right-0 top-0 h-8 w-8 hover:bg-transparent"
-                              aria-label={showAesKey ? "Hide AES key" : "Show AES key"}
-                            >
-                              {showAesKey ? (
-                                <EyeOff className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <Eye className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </Button>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => regenerateKeysMutation.mutate('aes')}
-                            disabled={regenerateKeysMutation.isPending}
-                            className="h-8 text-xs"
-                          >
-                            {regenerateKeysMutation.isPending ? (
-                              <Spinner className="h-3 w-3" />
-                            ) : (
-                              'Regenerate'
-                            )}
-                          </Button>
-                        </div>
+                        <span className="text-xs font-medium capitalize">
+                          {settings.project_status || 'unknown'}
+                        </span>
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Subscription Status</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium capitalize">
+                          {settings.project_subscription_status || 'free'}
+                        </span>
+                      </div>
+                    </div>
+                    {settings.project_subscription_expires_at && (
+                      <>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Expires At</Label>
+                          <p className="text-xs">
+                            {new Date(settings.project_subscription_expires_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Days Remaining</Label>
+                          <div className="flex items-center gap-2">
+                            {settings.project_days_until_expiry !== null && settings.project_days_until_expiry !== undefined && settings.project_days_until_expiry <= 3 ? (
+                              <AlertCircle className="h-4 w-4 text-yellow-500" />
+                            ) : settings.project_days_until_expiry !== null && settings.project_days_until_expiry !== undefined && settings.project_days_until_expiry <= 0 ? (
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            )}
+                            <span className={`text-xs font-medium ${
+                              settings.project_days_until_expiry !== null && settings.project_days_until_expiry !== undefined && settings.project_days_until_expiry <= 3
+                                ? 'text-yellow-600 dark:text-yellow-500'
+                                : settings.project_days_until_expiry !== null && settings.project_days_until_expiry !== undefined && settings.project_days_until_expiry <= 0
+                                ? 'text-red-600 dark:text-red-500'
+                                : ''
+                            }`}>
+                              {settings.project_days_until_expiry !== null && settings.project_days_until_expiry !== undefined
+                                ? `${settings.project_days_until_expiry} ${settings.project_days_until_expiry === 1 ? 'day' : 'days'}`
+                                : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {!settings.project_subscription_expires_at && (
                       <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Subscription</Label>
+                        <p className="text-xs text-muted-foreground">No expiration date set</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Palette className="h-4 w-4" />
+                    Appearance Settings
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Customize the appearance and colors of your project
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="primary_color" className="text-xs">
+                      Primary Color
+                    </Label>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Input
+                          id="primary_color"
+                          type="color"
+                          value={localSettings.appearance?.primaryColor || '#134e4a'}
+                          onChange={(e) => {
+                            const color = e.target.value
+                            setLocalSettings({
+                              ...localSettings,
+                              appearance: {
+                                ...(localSettings.appearance || {}),
+                                primaryColor: color
+                              }
+                            })
+                          }}
+                          className="h-10 w-20 cursor-pointer border-0 p-1"
+                          style={{ 
+                            backgroundColor: localSettings.appearance?.primaryColor || '#134e4a',
+                            borderRadius: '6px'
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          value={localSettings.appearance?.primaryColor || '#134e4a'}
+                          onChange={(e) => {
+                            let color = e.target.value
+                            // Allow partial input, but validate format
+                            if (color === '' || /^#[0-9A-Fa-f]{0,6}$/.test(color)) {
+                              // If it starts with # and has valid hex chars, allow it
+                              if (!color.startsWith('#')) {
+                                color = '#' + color
+                              }
+                              // Limit to 7 chars (# + 6 hex)
+                              if (color.length <= 7) {
+                                setLocalSettings({
+                                  ...localSettings,
+                                  appearance: {
+                                    ...(localSettings.appearance || {}),
+                                    primaryColor: color || '#134e4a'
+                                  }
+                                })
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // Validate and fix on blur
+                            let color = e.target.value
+                            if (!color.startsWith('#')) {
+                              color = '#' + color
+                            }
+                            // If not valid hex, reset to default or current
+                            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                              color = localSettings.appearance?.primaryColor || '#134e4a'
+                            }
+                            setLocalSettings({
+                              ...localSettings,
+                              appearance: {
+                                ...(localSettings.appearance || {}),
+                                primaryColor: color
+                              }
+                            })
+                          }}
+                          placeholder="#134e4a"
+                          className="h-8 text-xs font-mono"
+                          maxLength={7}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Choose a primary color for your project interface
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="secondary_color" className="text-xs">
+                      Secondary Color
+                    </Label>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Input
+                          id="secondary_color"
+                          type="color"
+                          value={localSettings.appearance?.secondaryColor || '#f1f5f9'}
+                          onChange={(e) => {
+                            const color = e.target.value
+                            setLocalSettings({
+                              ...localSettings,
+                              appearance: {
+                                ...(localSettings.appearance || {}),
+                                secondaryColor: color
+                              }
+                            })
+                          }}
+                          className="h-10 w-20 cursor-pointer border-0 p-1"
+                          style={{ 
+                            backgroundColor: localSettings.appearance?.secondaryColor || '#f1f5f9',
+                            borderRadius: '6px'
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          value={localSettings.appearance?.secondaryColor || '#f1f5f9'}
+                          onChange={(e) => {
+                            let color = e.target.value
+                            if (color === '' || /^#[0-9A-Fa-f]{0,6}$/.test(color)) {
+                              if (!color.startsWith('#')) {
+                                color = '#' + color
+                              }
+                              if (color.length <= 7) {
+                                setLocalSettings({
+                                  ...localSettings,
+                                  appearance: {
+                                    ...(localSettings.appearance || {}),
+                                    secondaryColor: color || '#f1f5f9'
+                                  }
+                                })
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            let color = e.target.value
+                            if (!color.startsWith('#')) {
+                              color = '#' + color
+                            }
+                            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                              color = localSettings.appearance?.secondaryColor || '#f1f5f9'
+                            }
+                            setLocalSettings({
+                              ...localSettings,
+                              appearance: {
+                                ...(localSettings.appearance || {}),
+                                secondaryColor: color
+                              }
+                            })
+                          }}
+                          placeholder="#f1f5f9"
+                          className="h-8 text-xs font-mono"
+                          maxLength={7}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Choose a secondary color for your project interface
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="accent_color" className="text-xs">
+                      Accent Color
+                    </Label>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Input
+                          id="accent_color"
+                          type="color"
+                          value={localSettings.appearance?.accentColor || '#3b82f6'}
+                          onChange={(e) => {
+                            const color = e.target.value
+                            setLocalSettings({
+                              ...localSettings,
+                              appearance: {
+                                ...(localSettings.appearance || {}),
+                                accentColor: color
+                              }
+                            })
+                          }}
+                          className="h-10 w-20 cursor-pointer border-0 p-1"
+                          style={{ 
+                            backgroundColor: localSettings.appearance?.accentColor || '#3b82f6',
+                            borderRadius: '6px'
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          value={localSettings.appearance?.accentColor || '#3b82f6'}
+                          onChange={(e) => {
+                            let color = e.target.value
+                            if (color === '' || /^#[0-9A-Fa-f]{0,6}$/.test(color)) {
+                              if (!color.startsWith('#')) {
+                                color = '#' + color
+                              }
+                              if (color.length <= 7) {
+                                setLocalSettings({
+                                  ...localSettings,
+                                  appearance: {
+                                    ...(localSettings.appearance || {}),
+                                    accentColor: color || '#3b82f6'
+                                  }
+                                })
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            let color = e.target.value
+                            if (!color.startsWith('#')) {
+                              color = '#' + color
+                            }
+                            if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                              color = localSettings.appearance?.accentColor || '#3b82f6'
+                            }
+                            setLocalSettings({
+                              ...localSettings,
+                              appearance: {
+                                ...(localSettings.appearance || {}),
+                                accentColor: color
+                              }
+                            })
+                          }}
+                          placeholder="#3b82f6"
+                          className="h-8 text-xs font-mono"
+                          maxLength={7}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Choose an accent color for highlights and accents
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Offline Authentication</CardTitle>
+                  <CardDescription className="text-xs">
+                    Configure offline authentication settings
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="offline_auth_enabled" className="text-xs">
+                        Offline Auth Enabled
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Allow offline authentication
+                      </p>
+                    </div>
+                    <Switch
+                      id="offline_auth_enabled"
+                      checked={localSettings.offline_auth.offline_auth_enabled}
+                      onCheckedChange={(checked) => handleInputChange('offline_auth', 'offline_auth_enabled', checked)}
+                    />
+                  </div>
+                  {localSettings.offline_auth.offline_auth_enabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="offline_ticket_expiration" className="text-xs">
+                        Ticket Expiration (hours)
+                      </Label>
+                      <Input
+                        id="offline_ticket_expiration"
+                        type="number"
+                        min="1"
+                        value={localSettings.offline_auth.offline_ticket_expiration_hours}
+                        onChange={(e) => handleInputChange('offline_auth', 'offline_ticket_expiration_hours', parseInt(e.target.value) || 12)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Encryption Keys</CardTitle>
+                  <CardDescription className="text-xs">
+                    Manage encryption keys for your project
+                    {settings?.project_unique_id && (
+                      <span className="ml-2 font-mono text-foreground">(Unique ID: {settings.project_unique_id})</span>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">AES Key</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type={showAesKey ? "text" : "password"}
+                          value={localSettings.encryption_keys.aes_key || ''}
+                          readOnly
+                          className="h-8 text-xs font-mono pr-10"
+                        />
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => regenerateMasterKeyMutation.mutate()}
-                          disabled={regenerateMasterKeyMutation.isPending}
-                          className="h-8 text-xs"
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowAesKey(!showAesKey)}
+                          className="absolute right-0 top-0 h-8 w-8 hover:bg-transparent"
+                          aria-label={showAesKey ? "Hide AES key" : "Show AES key"}
                         >
-                          {regenerateMasterKeyMutation.isPending ? (
-                            <>
-                              <Spinner className="h-3 w-3 mr-2" />
-                              Regenerating...
-                            </>
+                          {showAesKey ? (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
                           ) : (
-                            'Regenerate Master Key'
+                            <Eye className="h-4 w-4 text-muted-foreground" />
                           )}
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => regenerateKeysMutation.mutate('aes')}
+                        disabled={regenerateKeysMutation.isPending}
+                        className="h-8 text-xs"
+                      >
+                        {regenerateKeysMutation.isPending ? (
+                          <Spinner className="h-3 w-3" />
+                        ) : (
+                          'Regenerate'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => regenerateMasterKeyMutation.mutate()}
+                      disabled={regenerateMasterKeyMutation.isPending}
+                      className="h-8 text-xs"
+                    >
+                      {regenerateMasterKeyMutation.isPending ? (
+                        <>
+                          <Spinner className="h-3 w-3 mr-2" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        'Regenerate Master Key'
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

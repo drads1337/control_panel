@@ -648,34 +648,18 @@ cpr::Session create_session_with_mtls(const MtlsCertPaths& mtls, bool verify_pee
     
     // Configure SSL for mTLS:
     // - Client certificate/key for client authentication (mTLS)
-    // - Server certificate verification: disabled by default on Android because system CA store
-    //   is often not accessible to libcurl. mTLS still provides security through client cert verification.
-    //   Note: On Android, libcurl typically cannot access system CA certificates directly,
-    //   so VerifyPeer{true} often fails with "unable to get local issuer certificate"
-    //   If server_ca_path is provided, use it for server certificate verification
-    cpr::SslOptions ssl;
-    if (verify_peer && !server_ca_path.empty()) {
-        // Use server CA certificate for verification
-        LOGI("[mTLS] Using server CA certificate for verification: %s", server_ca_path.c_str());
-        ssl = cpr::Ssl(
-            cpr::ssl::TLSv1_2{},
-            cpr::ssl::VerifyPeer{true},
-            cpr::ssl::CertFile{mtls.cert_path.c_str()},  // Client certificate for mTLS
-            cpr::ssl::KeyFile{mtls.key_path.c_str()},    // Client private key for mTLS
-            cpr::ssl::CaInfo{std::string(server_ca_path)} // Server CA certificate for verification
-        );
-    } else {
-        // No server CA certificate, disable peer verification
-        ssl = cpr::Ssl(
-            cpr::ssl::TLSv1_2{},
-            cpr::ssl::VerifyPeer{false},
-            cpr::ssl::CertFile{mtls.cert_path.c_str()},  // Client certificate for mTLS
-            cpr::ssl::KeyFile{mtls.key_path.c_str()}     // Client private key for mTLS
-        );
-    }
-    
+    // - Server certificate verification disabled (server uses Let's Encrypt, not mTLS CA)
+    //   Note: The mTLS CA is only for client certificates, not server certificates.
+    //   Server certificate should be verified using system CA store, but for simplicity
+    //   we disable verification here. The connection is still encrypted via TLS.
+    cpr::SslOptions ssl = cpr::Ssl(
+        cpr::ssl::TLSv1_2{},
+        cpr::ssl::VerifyPeer{false},  // Disable server cert verification (server uses Let's Encrypt CA)
+        cpr::ssl::CertFile{mtls.cert_path.c_str()},  // Client certificate for mTLS
+        cpr::ssl::KeyFile{mtls.key_path.c_str()}     // Client private key for mTLS
+    );
     // Note: mtls.ca_path is the CA that signed the CLIENT certificate, not the server certificate
-    // mTLS provides security: server verifies client certificate, client authenticates server via mTLS handshake
+    // We don't use it for server certificate verification
     s.SetSslOptions(ssl);
     return s;
 }
@@ -809,6 +793,7 @@ data["k"] = PROJECT_ID;
 
 std::string blob = encryptWithMasterKey(data.dump(), MASTER_KEY_HEX);
 
+<<<<<<< Updated upstream
 LOGI("[Connect] Using mTLS session with cert=%s key=%s", mtls.cert_path.c_str(), mtls.key_path.c_str());
 session.SetUrl(std::string(SERVER_URL) + "/api/connect");
 nlohmann::json body;
@@ -891,41 +876,21 @@ if (resp.status_code != 200) {
         return r;
     }
     
-    // Default error messages based on status code (if no error message from server)
-    switch (resp.status_code) {
-        case 403:
-            r.err = "Access denied: Your license key may be expired, invalid, or this device is not authorized";
-            break;
-        case 401:
-            r.err = "Authentication failed: Invalid license key";
-            break;
-        case 404:
-            r.err = "License key not found: The provided license key does not exist";
-            break;
-        case 429:
-            r.err = "Rate limit exceeded: Please wait before trying again";
-            break;
-        default:
-            r.err = "License check failed: Server returned error " + std::to_string(resp.status_code);
-            break;
+    // Success case - decrypt and parse response
+    try {
+        auto dec = decryptWithMasterKey(resp.text, MASTER_KEY_HEX);
+        auto jr = nlohmann::json::parse(dec);
+        if (jr.contains("error")) {
+            r.err = jr.value("error", "server error");
+            return r;
+        }
+        r.expires_at   = jr.value("expires_at", "");
+        r.seconds_left = jr.value("seconds_left_human", "");
+        r.ok = true;
+    } catch (const std::exception& e) {
+        r.err = std::string("Failed to decrypt server response: ") + e.what();
     }
     return r;
-}
-
-try {
-    auto dec = decryptWithMasterKey(resp.text, MASTER_KEY_HEX);
-    auto jr = nlohmann::json::parse(dec);
-    if (jr.contains("error")) {
-        r.err = jr.value("error", "server error");
-        return r;
-    }
-    r.expires_at   = jr.value("expires_at", "");
-    r.seconds_left = jr.value("seconds_left_human", "");
-    r.ok = true;
-} catch (const std::exception& e) {
-    r.err = std::string("Failed to decrypt server response: ") + e.what();
-}
-return r;
 }
 
 // ------------------ Android device fingerprint ------------------

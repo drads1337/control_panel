@@ -37,6 +37,11 @@ export interface ProjectSettings {
   }
   appearance: Record<string, any>
   project_unique_id?: string
+  project_status?: string
+  project_is_active?: boolean
+  project_subscription_status?: string
+  project_days_until_expiry?: number | null
+  project_subscription_expires_at?: string | null
 }
 
 export interface UpdateSettingsData {
