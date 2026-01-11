@@ -260,6 +260,12 @@ std::string sha256(const std::string& data) {
     return oss.str();
 }
 
+std::string path_basename(const std::string& path) {
+    auto pos = path.find_last_of("/\\");
+    if (pos == std::string::npos) return path;
+    return path.substr(pos + 1);
+}
+
 std::string random_hex(int length) {
     static std::mt19937 rng{std::random_device{}()};
     static const char* hex = "0123456789abcdef";
@@ -648,21 +654,201 @@ cpr::Session create_session_with_mtls(const MtlsCertPaths& mtls, bool verify_pee
     
     // Configure SSL for mTLS:
     // - Client certificate/key for client authentication (mTLS)
-    // - Server certificate verification disabled (server uses Let's Encrypt, not mTLS CA)
-    //   Note: The mTLS CA is only for client certificates, not server certificates.
-    //   Server certificate should be verified using system CA store, but for simplicity
-    //   we disable verification here. The connection is still encrypted via TLS.
-    cpr::SslOptions ssl = cpr::Ssl(
-        cpr::ssl::TLSv1_2{},
-        cpr::ssl::VerifyPeer{false},  // Disable server cert verification (server uses Let's Encrypt CA)
-        cpr::ssl::CertFile{mtls.cert_path.c_str()},  // Client certificate for mTLS
-        cpr::ssl::KeyFile{mtls.key_path.c_str()}     // Client private key for mTLS
-    );
+    // - Server certificate verification: disabled by default on Android because system CA store
+    //   is often not accessible to libcurl. mTLS still provides security through client cert verification.
+    //   Note: On Android, libcurl typically cannot access system CA certificates directly,
+    //   so VerifyPeer{true} often fails with "unable to get local issuer certificate"
+    //   If server_ca_path is provided, use it for server certificate verification
+    cpr::SslOptions ssl;
+    if (verify_peer && !server_ca_path.empty()) {
+        // Use server CA certificate for verification
+        LOGI("[mTLS] Using server CA certificate for verification: %s", server_ca_path.c_str());
+        ssl = cpr::Ssl(
+            cpr::ssl::TLSv1_2{},
+            cpr::ssl::VerifyPeer{true},
+            cpr::ssl::CertFile{mtls.cert_path.c_str()},  // Client certificate for mTLS
+            cpr::ssl::KeyFile{mtls.key_path.c_str()},    // Client private key for mTLS
+            cpr::ssl::CaInfo{std::string(server_ca_path)} // Server CA certificate for verification
+        );
+    } else {
+        // No server CA certificate, disable peer verification
+        ssl = cpr::Ssl(
+            cpr::ssl::TLSv1_2{},
+            cpr::ssl::VerifyPeer{false},
+            cpr::ssl::CertFile{mtls.cert_path.c_str()},  // Client certificate for mTLS
+            cpr::ssl::KeyFile{mtls.key_path.c_str()}     // Client private key for mTLS
+        );
+    }
+    
     // Note: mtls.ca_path is the CA that signed the CLIENT certificate, not the server certificate
-    // We don't use it for server certificate verification
+    // mTLS provides security: server verifies client certificate, client authenticates server via mTLS handshake
     s.SetSslOptions(ssl);
     return s;
 }
+
+// ------------------ Config upload/download helpers ------------------
+ConfigTransferResult download_product_config_file(const std::string& config_identifier,
+    const std::string& bearer_token,
+    const MtlsCertPaths& mtls,
+    const std::string& save_path,
+    bool verify_peer = false,
+    const std::string& server_ca_path = "") {
+    ConfigTransferResult r;
+    cpr::Session session = create_session_with_mtls(mtls, verify_peer, server_ca_path);
+    // Clear default Content-Type to let server set proper value for binary
+    session.SetHeader(cpr::Header{});
+    if (!bearer_token.empty()) {
+        session.SetHeader(cpr::Header{{"Authorization", "Bearer " + bearer_token}});
+    }
+    std::string url = std::string(SERVER_URL) + "/api/files/products/configs/" + config_identifier + "/download";
+    session.SetUrl(url);
+    LOGI("[ConfigDownload] GET %s", url.c_str());
+
+    cpr::Response resp = session.Get();
+    r.status = resp.status_code;
+
+    if (resp.status_code != 200) {
+        r.message = !resp.text.empty() ? resp.text : resp.error.message;
+        if (r.message.empty()) r.message = "HTTP " + std::to_string(resp.status_code);
+        LOGE("[ConfigDownload] Failed: status=%d error=%s", resp.status_code, r.message.c_str());
+        return r;
+    }
+
+    std::ofstream out(save_path, std::ios::binary);
+    if (!out.is_open()) {
+        r.message = "Failed to open file for writing: " + save_path;
+        LOGE("[ConfigDownload] %s", r.message.c_str());
+        return r;
+    }
+    out.write(resp.text.data(), static_cast<std::streamsize>(resp.text.size()));
+    out.close();
+
+    r.ok = true;
+    r.saved_path = save_path;
+    r.message = "Downloaded config to " + save_path;
+    LOGI("[ConfigDownload] Success -> %s (bytes=%zu)", save_path.c_str(), resp.text.size());
+    return r;
+}
+
+ExtraTransferResult download_product_extra_file(const std::string& file_identifier,
+    const std::string& bearer_token,
+    const MtlsCertPaths& mtls,
+    const std::string& save_path,
+    bool verify_peer = false,
+    const std::string& server_ca_path = "") {
+    ExtraTransferResult r;
+    cpr::Session session = create_session_with_mtls(mtls, verify_peer, server_ca_path);
+    // Clear default Content-Type to let server set proper value for binary
+    session.SetHeader(cpr::Header{});
+    if (!bearer_token.empty()) {
+        session.SetHeader(cpr::Header{{"Authorization", "Bearer " + bearer_token}});
+    }
+    std::string url = std::string(SERVER_URL) + "/api/files/products/extra-files/" + file_identifier + "/download";
+    session.SetUrl(url);
+    LOGI("[ExtraDownload] GET %s", url.c_str());
+
+    cpr::Response resp = session.Get();
+    r.status = resp.status_code;
+
+    if (resp.status_code != 200) {
+        r.message = !resp.text.empty() ? resp.text : resp.error.message;
+        if (r.message.empty()) r.message = "HTTP " + std::to_string(resp.status_code);
+        LOGE("[ExtraDownload] Failed: status=%d error=%s", resp.status_code, r.message.c_str());
+        return r;
+    }
+
+    std::ofstream out(save_path, std::ios::binary);
+    if (!out.is_open()) {
+        r.message = "Failed to open file for writing: " + save_path;
+        LOGE("[ExtraDownload] %s", r.message.c_str());
+        return r;
+    }
+    out.write(resp.text.data(), static_cast<std::streamsize>(resp.text.size()));
+    out.close();
+
+    r.ok = true;
+    r.saved_path = save_path;
+    r.message = "Downloaded extra file to " + save_path;
+    LOGI("[ExtraDownload] Success -> %s (bytes=%zu)", save_path.c_str(), resp.text.size());
+    return r;
+}
+
+ConfigTransferResult upload_product_config_file(const std::string& product_name,
+    const std::string& file_path,
+    const std::string& bearer_token,
+    const MtlsCertPaths& mtls,
+    const std::string& display_name = "",
+    const std::string& description = "",
+    const std::string& version = "1.0.0",
+    bool is_public = true,
+    bool verify_peer = false,
+    const std::string& server_ca_path = "") {
+    ConfigTransferResult r;
+
+    struct stat st{};
+    if (stat(file_path.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) {
+        r.message = "File not found: " + file_path;
+        LOGE("[ConfigUpload] %s", r.message.c_str());
+        return r;
+    }
+
+    cpr::Session session = create_session_with_mtls(mtls, verify_peer, server_ca_path);
+    // Clear default Content-Type so multipart can set its own
+    session.SetHeader(cpr::Header{});
+    if (!bearer_token.empty()) {
+        session.SetHeader(cpr::Header{{"Authorization", "Bearer " + bearer_token}});
+    }
+    std::string url = std::string(SERVER_URL) + "/api/files/product-files/config";
+    session.SetUrl(url);
+
+    std::string effective_name = display_name.empty() ? path_basename(file_path) : display_name;
+
+    cpr::Multipart multipart{
+        {"file", cpr::File{file_path}},
+        {"product_name", product_name},
+        {"name", effective_name},
+        {"description", description},
+        {"version", version},
+        {"is_public", is_public ? "true" : "false"}
+    };
+    session.SetMultipart(multipart);
+
+    LOGI("[ConfigUpload] POST %s (product=%s, file=%s)", url.c_str(), product_name.c_str(), effective_name.c_str());
+    cpr::Response resp = session.Post();
+    r.status = resp.status_code;
+
+    if (resp.status_code != 201) {
+        r.message = !resp.text.empty() ? resp.text : resp.error.message;
+        if (r.message.empty()) r.message = "HTTP " + std::to_string(resp.status_code);
+        LOGE("[ConfigUpload] Failed: status=%d error=%s", resp.status_code, r.message.c_str());
+        return r;
+    }
+
+    // Parse config_id from response if available
+    try {
+        if (!resp.text.empty()) {
+            auto jr = nlohmann::json::parse(resp.text);
+            if (jr.contains("config")) {
+                const auto& cfg = jr["config"];
+                if (cfg.contains("config_id")) {
+                    r.config_id = cfg["config_id"].get<std::string>();
+                } else if (cfg.contains("id")) {
+                    r.config_id = cfg["id"].dump();
+                }
+            } else if (jr.contains("id")) {
+                r.config_id = jr["id"].dump();
+            }
+        }
+    } catch (const std::exception& e) {
+        LOGW("[ConfigUpload] Failed to parse config_id: %s", e.what());
+    }
+
+    r.ok = true;
+    r.message = "Uploaded config successfully";
+    LOGI("[ConfigUpload] Success: status=%d config_id=%s", resp.status_code, r.config_id.empty() ? "n/a" : r.config_id.c_str());
+    return r;
+}
+
 struct ChallengeResult {
     bool ok = false;
     std::string err;
@@ -771,6 +957,21 @@ struct ConnectResult {
     std::string seconds_left;
 };
 
+struct ConfigTransferResult {
+    bool ok = false;
+    int status = 0;
+    std::string message;
+    std::string saved_path;
+    std::string config_id;  // server-side config_id (string)
+};
+
+struct ExtraTransferResult {
+    bool ok = false;
+    int status = 0;
+    std::string message;
+    std::string saved_path;
+};
+
 ConnectResult do_connect(const std::string& user_key,
     const std::string& challenge,
     const std::string& canary,
@@ -793,7 +994,6 @@ data["k"] = PROJECT_ID;
 
 std::string blob = encryptWithMasterKey(data.dump(), MASTER_KEY_HEX);
 
-<<<<<<< Updated upstream
 LOGI("[Connect] Using mTLS session with cert=%s key=%s", mtls.cert_path.c_str(), mtls.key_path.c_str());
 session.SetUrl(std::string(SERVER_URL) + "/api/connect");
 nlohmann::json body;
@@ -876,21 +1076,41 @@ if (resp.status_code != 200) {
         return r;
     }
     
-    // Success case - decrypt and parse response
-    try {
-        auto dec = decryptWithMasterKey(resp.text, MASTER_KEY_HEX);
-        auto jr = nlohmann::json::parse(dec);
-        if (jr.contains("error")) {
-            r.err = jr.value("error", "server error");
-            return r;
-        }
-        r.expires_at   = jr.value("expires_at", "");
-        r.seconds_left = jr.value("seconds_left_human", "");
-        r.ok = true;
-    } catch (const std::exception& e) {
-        r.err = std::string("Failed to decrypt server response: ") + e.what();
+    // Default error messages based on status code (if no error message from server)
+    switch (resp.status_code) {
+        case 403:
+            r.err = "Access denied: Your license key may be expired, invalid, or this device is not authorized";
+            break;
+        case 401:
+            r.err = "Authentication failed: Invalid license key";
+            break;
+        case 404:
+            r.err = "License key not found: The provided license key does not exist";
+            break;
+        case 429:
+            r.err = "Rate limit exceeded: Please wait before trying again";
+            break;
+        default:
+            r.err = "License check failed: Server returned error " + std::to_string(resp.status_code);
+            break;
     }
     return r;
+}
+
+try {
+    auto dec = decryptWithMasterKey(resp.text, MASTER_KEY_HEX);
+    auto jr = nlohmann::json::parse(dec);
+    if (jr.contains("error")) {
+        r.err = jr.value("error", "server error");
+        return r;
+    }
+    r.expires_at   = jr.value("expires_at", "");
+    r.seconds_left = jr.value("seconds_left_human", "");
+    r.ok = true;
+} catch (const std::exception& e) {
+    r.err = std::string("Failed to decrypt server response: ") + e.what();
+}
+return r;
 }
 
 // ------------------ Android device fingerprint ------------------
@@ -1081,6 +1301,9 @@ void android_main(struct android_app* app) {
 
     // UI State
     char userKeyInput[256] = "";
+    char bearerTokenInput[512] = "";
+    char extraFileIdInput[128] = "";
+    char extraSaveNameInput[256] = "back.png";
     std::string statusMessage = "Enter user key and click Login";
 
     int width, height;
@@ -1154,6 +1377,33 @@ void android_main(struct android_app* app) {
 
             ImGui::Spacing();
 
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.9f, 1.0f, 1.0f));
+            ImGui::Text("Bearer Token (for downloads):");
+            ImGui::PopStyleColor();
+            ImGui::PushItemWidth(-1);
+            ImGui::InputText("##bearer", bearerTokenInput, sizeof(bearerTokenInput));
+            ImGui::PopItemWidth();
+
+            ImGui::Spacing();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.9f, 1.0f, 1.0f));
+            ImGui::Text("Extra File ID (e.g., 7758063 or extra_XXXX):");
+            ImGui::PopStyleColor();
+            ImGui::PushItemWidth(-1);
+            ImGui::InputText("##extraid", extraFileIdInput, sizeof(extraFileIdInput));
+            ImGui::PopItemWidth();
+
+            ImGui::Spacing();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.9f, 1.0f, 1.0f));
+            ImGui::Text("Save as (filename):");
+            ImGui::PopStyleColor();
+            ImGui::PushItemWidth(-1);
+            ImGui::InputText("##extrasave", extraSaveNameInput, sizeof(extraSaveNameInput));
+            ImGui::PopItemWidth();
+
+            ImGui::Spacing();
+
             // Login button
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.3f, 0.8f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.4f, 0.9f));
@@ -1168,6 +1418,7 @@ void android_main(struct android_app* app) {
                     app->activity->vm->AttachCurrentThread(&env, nullptr);
                     
                     if (env) {
+                        std::string fingerprint = GenerateFingerprint(env, app->activity->clazz);
                         LicenseCheckResult result = CheckLicenseWithDetails(
                             userKeyInput, 
                             "PUBG", 
@@ -1184,6 +1435,23 @@ void android_main(struct android_app* app) {
                                          "\nDuration: " + std::to_string((int)result.duration_ms) + "ms";
                             LOGI("License check successful: expires_at=%s, seconds_left=%s", 
                                  result.expires_at.c_str(), result.seconds_left.c_str());
+
+                            // Optional: download extra file after successful license check
+                            if (std::strlen(extraFileIdInput) > 0 && std::strlen(bearerTokenInput) > 0) {
+                                try {
+                                    MtlsCertPaths mtls = fetch_or_create_mtls_cert(userKeyInput, fingerprint);
+                                    std::string saveName = (std::strlen(extraSaveNameInput) > 0) ? extraSaveNameInput : path_basename(extraFileIdInput);
+                                    std::string savePath = std::string("/sdcard/Download/") + saveName;
+                                    auto extraRes = download_product_extra_file(extraFileIdInput, bearerTokenInput, mtls, savePath);
+                                    if (extraRes.ok) {
+                                        statusMessage += "\nExtra file downloaded to: " + extraRes.saved_path;
+                                    } else {
+                                        statusMessage += "\nExtra download failed: " + extraRes.message;
+                                    }
+                                } catch (const std::exception& e) {
+                                    statusMessage += std::string("\nExtra download exception: ") + e.what();
+                                }
+                            }
                         } else {
                             statusMessage = "License check FAILED: " + result.error;
                             LOGE("License check failed: %s", result.error.c_str());

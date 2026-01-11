@@ -90,6 +90,13 @@ class FileService:
             Tuple of (is_valid, error_message)
         """
 
+        # Get file extension to check if ZIP is allowed
+        file_ext = os.path.splitext(file_path)[1].lstrip('.').lower()
+        zip_extensions = ['zip', 'jar', 'war', 'ear']
+        is_zip_extension = file_ext in zip_extensions
+        if expected_extensions:
+            normalized_expected = [ext.lstrip('.').lower() for ext in expected_extensions]
+            is_zip_extension = is_zip_extension or any(ext in zip_extensions for ext in normalized_expected)
 
         dangerous_signatures = [
             (b'MZ', 'Windows executable (PE)'),
@@ -111,6 +118,8 @@ class FileService:
             b'RIFF': ['webp'],
         }
         
+        zip_signatures = [b'PK\x03\x04', b'PK\x05\x06', b'PK\x07\x08']
+        
         try:
             with open(file_path, 'rb') as f:
 
@@ -119,11 +128,24 @@ class FileService:
                 if len(header) < 2:
                     return True, None
                 
-
+                # Check if file has ZIP signature
+                has_zip_signature = any(header.startswith(sig) for sig in zip_signatures)
+                
+                # If file has ZIP signature and extension allows ZIP, skip ZIP in dangerous check
                 for signature, description in dangerous_signatures:
                     if header.startswith(signature):
+                        # Allow ZIP signatures if the extension is zip-related
+                        if has_zip_signature and is_zip_extension:
+                            break
                         return False, f"File signature indicates {description}. This file type is not allowed for security reasons."
                 
+                # Verify ZIP extension matches ZIP signature (prevent spoofing)
+                if is_zip_extension and not has_zip_signature:
+                    return False, f"File extension suggests ZIP archive, but file signature does not match. Possible file type spoofing."
+                
+                # Verify ZIP signature matches ZIP extension (prevent dangerous files with ZIP signature)
+                if has_zip_signature and not is_zip_extension:
+                    return False, f"File signature indicates ZIP archive, but extension does not match. Possible file type spoofing."
 
                 if expected_extensions:
 
