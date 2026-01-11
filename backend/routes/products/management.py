@@ -12,7 +12,7 @@ from sqlalchemy import and_
 
 from ...middleware.auth import enforce_project_scope, require_project_isolation, require_project_with_grace_period
 from ...middleware.validation import validate_request
-from ...models import Product, User
+from ...models import Product, User, ProductLibraryHashSettings
 from ...models.agents import AgentProductAssignment
 from ...models.core import UserProductPermission
 from ...schemas.product import ProductCreateSchema, ProductStatusUpdateSchema, ProductUpdateSchema
@@ -592,6 +592,13 @@ def delete_product(product_identifier):
 
         product_name = product.name
         product_id = product.id
+
+        # Explicitly delete related ProductLibraryHashSettings before deleting the product
+        # This prevents SQLAlchemy from trying to set product_id to NULL
+        library_hash_settings = ProductLibraryHashSettings.query.filter_by(product_id=product_id).first()
+        if library_hash_settings:
+            db.session.delete(library_hash_settings)
+            db.session.flush()  # Flush to ensure the deletion is processed before deleting the product
 
         db.session.delete(product)
         db.session.commit()

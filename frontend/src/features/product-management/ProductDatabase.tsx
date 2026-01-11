@@ -90,7 +90,12 @@ export default function ProductDatabase({
   } = useProductPermissions();
 
   const { products, loading, error, refetch } = useProductQuery();
-  const { handleStatusChange, handleDeleteProduct } = useProductMutations();
+  const { handleStatusChange, handleDeleteProduct: handleDeleteProductMutation } = useProductMutations();
+  
+  const handleDeleteProduct = React.useCallback(async (productId: number) => {
+    await handleDeleteProductMutation(productId);
+    await refetch();
+  }, [handleDeleteProductMutation, refetch]);
   
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -403,6 +408,18 @@ export default function ProductDatabase({
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleStatusChange(product.id, 'testing')}>
                                       Set Testing
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {canDeleteProducts && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDeleteProduct(product.id)}
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="size-3.5 mr-2" />
+                                      Delete
                                     </DropdownMenuItem>
                                   </>
                                 )}

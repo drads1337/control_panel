@@ -12,7 +12,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from ...core.extensions import db
 from ...middleware.auth import enforce_project_scope, require_project_with_grace_period
 from ...middleware.validation import validate_request
-from ...models import Product, User
+from ...models import Product, User, ProductLibraryHashSettings
 from ...schemas.product import ProductBulkDeleteSchema, ProductBulkStatusUpdateSchema
 from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
@@ -162,6 +162,10 @@ def bulk_delete_products(validated_data=None):
         deleted_count = 0
         product_names = []
         product_ids_deleted = []
+
+        # Explicitly delete related ProductLibraryHashSettings for all products before deleting them
+        ProductLibraryHashSettings.query.filter(ProductLibraryHashSettings.product_id.in_(product_ids)).delete(synchronize_session=False)
+        db.session.flush()  # Flush to ensure the deletions are processed before deleting products
 
         for product in products:
             product_name = product.name

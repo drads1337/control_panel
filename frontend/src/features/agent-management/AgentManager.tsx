@@ -85,7 +85,13 @@ export default function AgentManager({
     refetchStats,
   } = useAgentsQuery();
 
-  const { handleStatusChange, handleDeleteAgent } = useAgentMutations();
+  const { handleStatusChange, handleDeleteAgent: handleDeleteAgentMutation } = useAgentMutations();
+  
+  const handleDeleteAgent = React.useCallback(async (agentId: number) => {
+    await handleDeleteAgentMutation(agentId);
+    await refetch();
+    await refetchStats();
+  }, [handleDeleteAgentMutation, refetch, refetchStats]);
   
   const [refreshing, setRefreshing] = React.useState(false);
 
