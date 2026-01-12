@@ -37,6 +37,12 @@ class RequestValidationPipeline:
     def __init__(self, security_service=None):
         """Initialize validation pipeline with configuration"""
         self._security_service = security_service
+        if self._security_service is None:
+            try:
+                from ...utils.service_helpers import get_service
+                self._security_service = get_service("security_service")
+            except Exception:
+                logger.warning("security_service not available from service container")
 
         self.bad_ua_keywords = ["wget", "python", "requests", "postman", "insomnia"]
         self.bad_headers = []
@@ -159,10 +165,16 @@ class RequestValidationPipeline:
 
         try:
             if not self._security_service:
+                try:
+                    from ...utils.service_helpers import get_service
+                    self._security_service = get_service("security_service")
+                except Exception:
+                    pass
 
+            if not self._security_service:
                 logger.warning("Security Service dependency not injected, skipping IP block check")
                 return True, None
-            
+
             if self._security_service.is_ip_blocked(ip, project_id):
                 return False, "IP_BLOCKED"
         except (ConnectionError, TimeoutError) as e:

@@ -261,7 +261,7 @@ class Config:
         }
 
     ALLOWED_LOADER_EXTENSIONS = set(
-        os.environ.get("ALLOWED_LOADER_EXTENSIONS", "png,jpg,jpeg,gif,exe,apk,so,dmg,deb,rpm").split(",")
+        os.environ.get("ALLOWED_LOADER_EXTENSIONS", "png,jpg,jpeg,gif,exe,apk,so,dmg,deb,rpm,zip").split(",")
     )
 
     # Logging & Metrics

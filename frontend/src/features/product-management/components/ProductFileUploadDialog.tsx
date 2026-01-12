@@ -154,7 +154,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
                 <FileUpload
                   onFilesSelect={(files) => handleFilesSelect(files, 'file')}
                   multiple={false}
-                  accept=".exe,.apk,.so,.dmg,.deb,.rpm"
+                  accept=".exe,.apk,.so,.dmg,.deb,.rpm,.zip"
                   maxSize={50 * 1024 * 1024}
                   maxFiles={1}
                   showPreview={false}
@@ -178,7 +178,7 @@ const ProductFileUploadDialog: React.FC<ProductFileUploadDialogProps> = ({ open,
                 <div>Logo: PNG, JPG, JPEG, GIF (up to 5MB)</div>
                 <div>Banner: PNG, JPG, JPEG, GIF (up to 10MB)</div>
                 <div>Background: PNG, JPG, JPEG, GIF (up to 15MB)</div>
-                <div>File: EXE, APK, SO, DMG, DEB, RPM (up to 50MB)</div>
+                <div>File: EXE, APK, SO, DMG, DEB, RPM, ZIP (up to 50MB)</div>
               </div>
             </div>
 

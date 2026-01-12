@@ -97,6 +97,9 @@ class ConnectToken(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True)
     last_used = db.Column(db.DateTime, nullable=True)
+    # Binding info to prevent token reuse on other devices/certs
+    fingerprint = db.Column(db.String(128), nullable=True)
+    cert_fingerprint = db.Column(db.String(128), nullable=True)
 
     user = db.relationship("User", backref="connect_tokens")
     key = db.relationship("Key", backref="connect_tokens")

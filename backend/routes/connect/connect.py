@@ -295,6 +295,8 @@ def classic_connect():
     username = req_json.get("username")
     password = req_json.get("password")
     project_id = req_json.get("project_id")
+    fingerprint = req_json.get("fingerprint")
+    cert_fp = request.headers.get("X-SSL-Client-Fingerprint", "")
 
     if is_mtls_enabled():
         if not project_id:
@@ -330,7 +332,9 @@ def classic_connect():
         username=username,
         password=password,
         ip=ip,
-        user_agent=user_agent
+        user_agent=user_agent,
+        fingerprint=fingerprint,
+        cert_fingerprint=cert_fp,
     )
 
     if username and password and status_code == 200:

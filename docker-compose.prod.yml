@@ -11,6 +11,8 @@ services:
       # Только uploads, без монтирования кода (используется код из образа)
       - ./uploads:/app/uploads
       - ./backend/uploads:/app/backend/uploads
+      # GeoIP database (optional - если файл есть на хосте, он будет использован)
+      - ./backend/GeoLite2-City.mmdb:/app/backend/GeoLite2-City.mmdb:ro
 
   celery_worker_default:
     volumes:

@@ -11,10 +11,13 @@ import os
 from typing import Any, Dict, Optional, Tuple
 
 import redis
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from ...config.config import Config
 from ...utils.redis_client import get_redis_client
-from ...utils.service_exceptions import ServiceError
+from ...utils.service_exceptions import SecurityError, ServiceError
 
 
 logger = logging.getLogger(__name__)
@@ -240,6 +243,41 @@ class ChallengeValidationService:
 
             logger.error(f"ENHANCED_CHALLENGE_VALIDATION_TRACEBACK: {traceback.format_exc()}")
             return False, "Challenge validation error"
+
+    def derive_session_key(self, user_key: str, fingerprint: str) -> bytes:
+        """
+        Derive a temporary session key bound to the validated challenge and device fingerprint.
+
+        The key is used to encrypt app_config so it is tied to both the session challenge
+        and the requesting device.
+        """
+        challenge_data = self._get_challenge_data(user_key, fingerprint)
+        if not challenge_data:
+            raise SecurityError("Challenge context missing", error_code="CHALLENGE_CONTEXT_MISSING")
+
+        crypto = challenge_data.get("challenges", {}).get("crypto", {})
+        salt_hex = crypto.get("salt")
+        nonce_hex = challenge_data.get("nonce")
+        challenge_id = challenge_data.get("challenge_id")
+
+        if not salt_hex or not nonce_hex or not challenge_id:
+            raise SecurityError("Challenge data incomplete", error_code="CHALLENGE_CONTEXT_INCOMPLETE")
+
+        try:
+            ikm = bytes.fromhex(salt_hex) + bytes.fromhex(nonce_hex) + fingerprint.encode()
+        except ValueError:
+            raise SecurityError("Invalid challenge entropy", error_code="CHALLENGE_ENTROPY_INVALID")
+
+        hkdf_salt = hashlib.sha256(f"{challenge_id}:{fingerprint}".encode()).digest()
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=hkdf_salt,
+            info=b"app-config-session-v1",
+            backend=default_backend(),
+        )
+
+        return hkdf.derive(ikm)
 
     def _get_redis_client(self) -> Optional[redis.Redis]:
         """Get Redis client"""

@@ -20,6 +20,8 @@ from ...utils.data_masking import mask_license_key
 from ...utils.rbac_utils import RBACManager
 from ...utils.role_constants import UserRoles
 from ...utils.idempotency import require_idempotency
+from ...utils.key_counters import update_user_key_counters_on_status_change
+from ...utils.project_counters import update_project_key_counters_on_status_change
 from ...services.keys.key_filter_specification import KeyFilterSpecification
 from .common import can_manage_key
 
@@ -664,10 +666,9 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
 def update_key(key_id, current_user, project_id=None, validated_data=None):
     """Update a key"""
 
+    activity_service = get_service('activity_service')
+    key_crud_service = get_service('key_crud_service')
     if not current_user:
-
-        activity_service = get_service('activity_service')
-        key_crud_service = get_service('key_crud_service')
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:
@@ -842,11 +843,9 @@ def pause_key(key_id, current_user, project_id=None):
         old_status = key.status
         key.status = 3
 
-        from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 3)
 
         if key.project_id:
-            from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 3)
 
         db.session.commit()
@@ -899,11 +898,9 @@ def resume_key(key_id, current_user, project_id=None):
         old_status = key.status
         key.status = 1
 
-        from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 1)
 
         if key.project_id:
-            from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 1)
 
         db.session.commit()
@@ -1126,11 +1123,9 @@ def block_key(key_id, current_user, project_id=None):
         if old_status == 2:
             key.status = 1
             
-            from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 1)
             
             if key.project_id:
-                from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 1)
             
             db.session.commit()
@@ -1157,11 +1152,9 @@ def block_key(key_id, current_user, project_id=None):
 
             key.status = 2
 
-            from ...utils.key_counters import update_user_key_counters_on_status_change
             update_user_key_counters_on_status_change(key.user_id, old_status, 2)
 
             if key.project_id:
-                from ...utils.project_counters import update_project_key_counters_on_status_change
                 update_project_key_counters_on_status_change(key.project_id, old_status, 2)
 
             db.session.commit()
@@ -1216,11 +1209,9 @@ def unblock_key(key_id, current_user, project_id=None):
         old_status = key.status
         key.status = 1
 
-        from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 1)
 
         if key.project_id:
-            from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 1)
 
         db.session.commit()
@@ -1270,11 +1261,9 @@ def archive_key(key_id, current_user, project_id=None):
         old_status = key.status
         key.status = 4
 
-        from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 4)
 
         if key.project_id:
-            from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 4)
 
         db.session.commit()
@@ -1312,11 +1301,9 @@ def restore_key(key_id, current_user, project_id=None):
         old_status = key.status
         key.status = 1
 
-        from ...utils.key_counters import update_user_key_counters_on_status_change
         update_user_key_counters_on_status_change(key.user_id, old_status, 1)
 
         if key.project_id:
-            from ...utils.project_counters import update_project_key_counters_on_status_change
             update_project_key_counters_on_status_change(key.project_id, old_status, 1)
 
         db.session.commit()

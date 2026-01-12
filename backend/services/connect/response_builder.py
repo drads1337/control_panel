@@ -21,6 +21,42 @@ from ...utils.secure_crypto import MasterKeyManager, encrypt_data_with_project_k
 class ResponseBuilder:
     """Handles response building and encryption"""
 
+    # Short-lived TTL to ensure app_config is time-bound and rotated frequently
+    app_config_ttl_seconds = getattr(Config, "APP_CONFIG_TTL_SECONDS", 900)
+
+    def build_app_config_payload(self, loader_config: str, project_id: int) -> Dict[str, Any]:
+        """
+        Wrap app_config with time-bound metadata and per-response nonce, then encrypt.
+
+        This makes the blob change every response and enforces client-side expiration.
+        """
+        now = datetime.utcnow()
+        expires_at = now + timedelta(seconds=self.app_config_ttl_seconds)
+        nonce = secrets.token_hex(16)
+
+        payload = {
+            "config": loader_config,
+            "issued_at": now.isoformat() + "Z",
+            "expires_at": expires_at.isoformat() + "Z",
+            "nonce": nonce,
+            "version": 1,
+        }
+
+        # Sign before encrypting so clients can verify authenticity after decryption
+        payload["signature"] = self._sign_response(payload, project_id)
+
+        encrypted_blob = encrypt_data_with_project_key(payload, project_id)
+
+        return {
+            "ciphertext": encrypted_blob,
+            "meta": {
+                "issued_at": int(now.timestamp()),
+                "expires_at": int(expires_at.timestamp()),
+                "nonce": nonce,
+                "ttl_seconds": self.app_config_ttl_seconds,
+            },
+        }
+
     def build_success_response(
         self,
         token: str,
@@ -31,8 +67,8 @@ class ResponseBuilder:
         notifications: list,
         heartbeat_session: Optional[Dict] = None,
         offline_ticket: Optional[str] = None,
-        access_token: Optional[str] = None,
         product_obj: Optional[Any] = None,
+        loader_config: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Build success response for connect endpoint
@@ -46,8 +82,8 @@ class ResponseBuilder:
             notifications: List of notifications
             heartbeat_session: Heartbeat session data (optional)
             offline_ticket: Offline authentication ticket (JWT) (optional)
-            access_token: JWT access token for API authentication (optional)
             product_obj: Product object (optional) - includes product info in response
+            loader_config: Encrypted config/keys for application functionality (optional)
 
         Returns:
             Response dictionary
@@ -68,10 +104,6 @@ class ResponseBuilder:
             "g": os.urandom(2).hex(),
             "x": os.urandom(8).hex(),
             "y": os.urandom(8).hex(),
-            "project_id": project_id,
-            "expires_at": expires_at,
-            "seconds_left": seconds_left,
-            "seconds_left_human": seconds_left_human,
             "now_utc": now_utc,
             "notifications": notifications,
             "response_id": response_id,  # For replay protection
@@ -88,9 +120,15 @@ class ResponseBuilder:
         if offline_ticket:
             response["offline_ticket"] = offline_ticket
 
-        if access_token:
-            response["access_token"] = access_token
-
+        # Ensure license timing info is always present so clients can validate even
+        # when app_config is absent (e.g., products without loader_config).
+        response.update(
+            {
+                "expires_at": expires_at or "",
+                "seconds_left": seconds_left if seconds_left is not None else 0,
+                "seconds_left_human": seconds_left_human or "",
+            }
+        )
 
         if product_obj:
 
@@ -116,6 +154,13 @@ class ResponseBuilder:
                 "background": background_value,
                 "file": product_obj.loader_file or "",
             }
+
+        # Add encrypted config/keys required for application functionality.
+        # Wrap with per-response nonce and expiry so a stale dump cannot be replayed.
+        if loader_config:
+            app_config_bundle = self.build_app_config_payload(loader_config, project_id)
+            response["app_config"] = app_config_bundle["ciphertext"]
+            response["app_config_meta"] = app_config_bundle["meta"]
 
         return response
 
@@ -213,11 +258,7 @@ class ResponseBuilder:
         try:
             if used_global_key:
                 if use_legacy:
-
-                    logging.info(f"[ENCRYPT_RESPONSE] Encrypting with AES-256-GCM (legacy)")
-
-                    logging.info(f"[ENCRYPT_RESPONSE] MASTER_KEY length: {len(Config.MASTER_KEY)}")
-                    logging.info(f"[ENCRYPT_RESPONSE] MASTER_KEY prefix (masked): {Config.MASTER_KEY[:8]}...")
+                    logging.info("[ENCRYPT_RESPONSE] Encrypting with AES-256-GCM (legacy)")
                     encrypted_blob = MasterKeyManager.encrypt_with_master_key_legacy(
                         json.dumps(response), Config.MASTER_KEY
                     )
@@ -268,31 +309,7 @@ class ResponseBuilder:
 
         except Exception as e:
             logging.error(f"Error encrypting response: {e}")
-
-
-
-
-
-            error_response = {"error": "Internal server error", "r": os.urandom(16).hex()}
-
-
-            if not project_id:
-                logging.warning(
-                    "[ENCRYPT_RESPONSE] Using global MASTER_KEY for error response (no project_id). "
-                    "This should only happen for critical system errors."
-                )
-                return MasterKeyManager.encrypt_with_master_key_legacy(
-                    json.dumps(error_response), Config.MASTER_KEY
-                )
-            else:
-
-
-                logging.error(
-                    f"[ENCRYPT_RESPONSE] Critical: Cannot encrypt error response for project {project_id}. "
-                    "Returning unencrypted error (client should handle gracefully)."
-                )
-
-                return json.dumps(error_response)
+            raise
 
     def build_classic_connect_response(
         self, token: str, project_id: int, notifications: list, login_type: str = "classic"
@@ -327,10 +344,6 @@ class ResponseBuilder:
             "g": os.urandom(2).hex(),
             "x": os.urandom(8).hex(),
             "y": os.urandom(8).hex(),
-            "project_id": project_id,
-            "expires_at": expires_at,
-            "seconds_left": seconds_left,
-            "seconds_left_human": seconds_left_human,
             "now_utc": now_utc,
             "notifications": notifications,
             "login_type": login_type,

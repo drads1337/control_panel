@@ -43,19 +43,21 @@ export function useFileManagerUpload({
     category: 'resource',
     uploadPath: '/',
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = useCallback(
-    async (file: File) => {
-      const targetId = selectedProduct?.id || selectedAgent?.id;
-      if (!targetId) {
-        toast.error('Please select a product or agent first');
+    async (file?: File) => {
+      const targetFile = file || selectedFile;
+      if (!targetFile) {
+        toast.error('Please select a file to upload');
         return false;
       }
 
-      if (!file) {
-        toast.error('Please select a file to upload');
+      const targetId = selectedProduct?.id || selectedAgent?.id;
+      if (!targetId) {
+        toast.error('Please select a product or agent first');
         return false;
       }
 
@@ -80,25 +82,25 @@ export function useFileManagerUpload({
         let uploadResult;
         if (showConfigsFolder || uploadForm.uploadPath === '/configs') {
           uploadResult = await uploadProductExtraFile(
-            file,
+            targetFile,
             productId,
-            uploadForm.name || file.name,
+            uploadForm.name || targetFile.name,
             uploadForm.description
           );
         } else if (uploadForm.category === 'config') {
           uploadResult = await uploadProductConfig(
-            file,
+            targetFile,
             productId,
-            uploadForm.name || file.name,
+            uploadForm.name || targetFile.name,
             uploadForm.description,
             uploadForm.version,
             true
           );
         } else {
           uploadResult = await uploadProductExtraFile(
-            file,
+            targetFile,
             productId,
-            uploadForm.name || file.name,
+            uploadForm.name || targetFile.name,
             uploadForm.description
           );
         }
@@ -106,7 +108,8 @@ export function useFileManagerUpload({
         clearInterval(progressInterval);
         setUploadProgress(100);
 
-        toast.success(`File "${file.name}" uploaded successfully`);
+        toast.success(`File "${targetFile.name}" uploaded successfully`);
+        setSelectedFile(null);
         resetUploadForm();
         onUploadSuccess?.();
 
@@ -142,8 +145,20 @@ export function useFileManagerUpload({
       showConfigsFolder,
       uploadForm,
       onUploadSuccess,
+      selectedFile,
     ]
   );
+
+  const handleFileSelect = useCallback((file: File) => {
+    setSelectedFile(file);
+    setUploadForm((prev) => ({
+      ...prev,
+      name: file.name,
+      category: file.name.toLowerCase().includes('config')
+        ? 'config'
+        : prev.category,
+    }));
+  }, []);
 
   const resetUploadForm = useCallback(() => {
     setUploadForm({
@@ -153,6 +168,7 @@ export function useFileManagerUpload({
       category: 'config',
       uploadPath: showConfigsFolder ? '/configs' : '/',
     });
+    setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -198,18 +214,11 @@ export function useFileManagerUpload({
         return;
       }
 
-      setUploadForm((prev) => ({
-        ...prev,
-        name: file.name,
-        category: file.name.toLowerCase().includes('config')
-          ? 'config'
-          : 'resource',
-      }));
-
+      handleFileSelect(file);
       onFileReady?.(file);
       toast.success(`File "${file.name}" ready for upload`);
     },
-    []
+    [handleFileSelect]
   );
 
   return {
@@ -217,10 +226,12 @@ export function useFileManagerUpload({
     uploadProgress,
     dragOver,
     uploadForm,
+    selectedFile,
     fileInputRef,
     setUploadForm,
     setDragOver,
     handleFileUpload,
+    handleFileSelect,
     resetUploadForm,
     handleDragOver,
     handleDragLeave,

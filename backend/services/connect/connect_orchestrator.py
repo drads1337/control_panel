@@ -12,8 +12,9 @@ from ...core.extensions import db
 from ...models.core import User
 from ...services.keys.key_validator import KeyValidator
 from ...services.validation import request_validation_pipeline
-from ...utils.service_exceptions import ValidationError, NotFoundError
+from ...utils.secure_crypto import SecureCrypto
 from ...utils.secure_key_exchange import get_cert_device_binding
+from ...utils.service_exceptions import NotFoundError, SecurityError, ValidationError
 from .analytics_tracker import AnalyticsTracker
 from .challenge_validation_service import ChallengeValidationService
 from .decryption_service import DecryptionService
@@ -32,17 +33,32 @@ class ConnectOrchestrator:
     Coordinates specialized services to handle the complete authentication process
     """
 
-    def __init__(self, challenge_service=None):
+    def __init__(
+        self,
+        challenge_service=None,
+        security_service=None,
+        analytics_buffer_service=None,
+        heartbeat_service=None,
+        activity_service=None,
+    ):
         """Initialize orchestrator with all required services"""
         from ...utils.service_helpers import get_service
-        
-        # Get challenge_service from service container if not provided
-        if challenge_service is None:
+
+        def _get(name, provided=None):
+            if provided is not None:
+                return provided
             try:
-                challenge_service = get_service('challenge_service')
+                return get_service(name)
             except Exception:
-                logger.warning("challenge_service not available from service container, enhanced challenge validation may fail")
-                challenge_service = None
+                logger.warning(f"{name} not available from service container")
+                return None
+
+        # Resolve services (fallback to DI container when not passed explicitly)
+        challenge_service = challenge_service or _get("challenge_service")
+        security_service = _get("security_service", security_service)
+        analytics_buffer_service = _get("analytics_buffer_service", analytics_buffer_service)
+        heartbeat_service = _get("heartbeat_service", heartbeat_service)
+        activity_service = _get("activity_service", activity_service)
 
         self.decryption_service = DecryptionService()
         self.request_validator = RequestValidationService()
@@ -52,9 +68,13 @@ class ConnectOrchestrator:
 
         self.token_generator = TokenGenerationService()
 
-        self.security_checker = SecurityChecker()
+        self.security_checker = SecurityChecker(security_service=security_service)
         self.device_manager = DeviceManager()
-        self.analytics_tracker = AnalyticsTracker()
+        self.analytics_tracker = AnalyticsTracker(
+            activity_service=activity_service,
+            analytics_buffer_service=analytics_buffer_service,
+            heartbeat_service=heartbeat_service,
+        )
         self.response_builder = ResponseBuilder()
 
     def process_connect_request(
@@ -79,6 +99,7 @@ class ConnectOrchestrator:
         user_key = None
         successful_project_id = None
         used_global_key = False
+        session_key = None
 
         try:
 
@@ -210,32 +231,35 @@ class ConnectOrchestrator:
 
             # SECURITY: Library hash verification
             library_hash = fields.get("library_hash")
-            if library_hash:
+            if key_obj:
                 try:
                     from ...utils.service_helpers import get_service
                     library_hash_service = get_service('library_hash_service')
                     is_valid, error_msg, entity_type = library_hash_service.validate_library_hash(
-                        key_obj, library_hash
+                        key_obj, library_hash or ""
                     )
                     
                     if not is_valid:
                         entity_name = "Agent" if entity_type == "agent" else "Product"
                         entity_id = key_obj.agent_id if entity_type == "agent" else key_obj.product_id
+                        hash_prefix = library_hash[:16] + "..." if library_hash else "missing"
                         logger.warning(
                             f"LIBRARY_HASH_MISMATCH ip={ip} user_key={user_key} "
                             f"project_id={project_id} {entity_name.lower()}_id={entity_id} "
-                            f"hash={library_hash[:16]}..."
+                            f"hash={hash_prefix} error_msg={error_msg}"
                         )
                         self.security_checker.log_suspicious_activity(
                             ip, "LIBRARY_HASH_MISMATCH", 
-                            f"{entity_name} hash={library_hash[:16]}..."
+                            f"{entity_name} hash={hash_prefix}"
                         )
                         self._log_user_activity(
                             key_obj, project_id, "api_connect_error",
                             f"user_key={user_key}, reason=LIBRARY_HASH_MISMATCH", ip
                         )
+                        # Use the specific error message from library_hash_service
+                        user_friendly_msg = error_msg if error_msg else f"{entity_name} library build verification failed. Please update to the latest version."
                         error_response = self.response_builder.build_error_response(
-                            f"{entity_name} library build verification failed. Please update to the latest version.",
+                            user_friendly_msg,
                             project_id
                         )
                         encrypted_response = self.response_builder.encrypt_response(
@@ -252,6 +276,7 @@ class ConnectOrchestrator:
                         exc_info=True
                     )
 
+            cert_fingerprint = None
             # SECURITY: Certificate-Device binding verification (if mTLS is enabled)
             # This prevents certificate sharing across different devices
             try:
@@ -373,7 +398,7 @@ class ConnectOrchestrator:
                 logger.warning(f"CHALLENGE_FAILED ip={ip} user_key={user_key} error={error_msg}")
                 self._log_user_activity(key_obj, project_id, "api_connect_error", f"user_key={user_key}, reason=CHALLENGE_FAIL", ip)
                 return self._build_error_response(error_msg, used_global_key, project_id), 403
-
+            session_key = self.challenge_validator.derive_session_key(user_key, fields.get("fingerprint"))
             self.challenge_validator.cleanup_challenge(user_key, fields.get("fingerprint"))
 
             geo = self.security_checker.behavioral_analysis(user_key, ip, fields.get("fingerprint"))
@@ -440,6 +465,8 @@ class ConnectOrchestrator:
                 project_id=project_id,
                 expires_at=key_obj.expires_at,
                 is_classic=False,
+                fingerprint=fields.get("fingerprint") or "",
+                cert_fingerprint=cert_fingerprint or "",
             )
 
             notifications = self.analytics_tracker.get_notifications(project_id, key_obj.user_id)
@@ -452,15 +479,28 @@ class ConnectOrchestrator:
             )
 
 
-            access_token = None
-            if key_obj.user_id:
+            # Load encrypted config/keys from product remote_config
+            loader_config = None
+            if product_obj:
                 try:
-                    user = User.query.get(key_obj.user_id)
-                    if user:
-                        from flask_jwt_extended import create_access_token
-                        access_token = create_access_token(identity=str(user.id))
+                    from ...models.products import RemoteConfig
+                    remote_config = RemoteConfig.query.filter_by(product_id=product_obj.id).first()
+                    if remote_config and remote_config.loader_config:
+                        loader_config = remote_config.loader_config
+                        logger.debug(f"Loaded loader_config for product {product_obj.id}, length={len(loader_config) if loader_config else 0}")
                 except Exception as e:
-                    logger.warning(f"Failed to generate JWT access token for user {key_obj.user_id}: {e}")
+                    logger.warning(f"Failed to load loader_config for product {product_obj.id}: {e}")
+
+            # Encrypt app_config with session-bound key (challenge + fingerprint)
+            encrypted_app_config = None
+            if loader_config:
+                if not session_key:
+                    logger.error("SESSION_KEY_MISSING while loader_config present - refusing to fallback to master key")
+                    return self._build_error_response("Session key unavailable", used_global_key, project_id), 403
+                encrypted_app_config = SecureCrypto.encrypt_data(loader_config, session_key)
+                logger.info(
+                    f"APP_CONFIG_ENCRYPTED_SESSION_KEY project_id={project_id} product_id={product_obj.id if product_obj else 'unknown'}"
+                )
 
             response = self.response_builder.build_success_response(
                 token,
@@ -471,9 +511,11 @@ class ConnectOrchestrator:
                 notifications,
                 heartbeat_session,
                 offline_ticket=offline_ticket,
-                access_token=access_token,
                 product_obj=product_obj,
+                loader_config=encrypted_app_config,
             )
+            if encrypted_app_config:
+                response["app_config_scheme"] = "session_v1"
 
             # SECURITY: Mark response_id as used to prevent replay attacks
             response_id = response.get("response_id")
@@ -494,6 +536,16 @@ class ConnectOrchestrator:
             )
 
             return encrypted_response, 200
+
+        except SecurityError as e:
+            error_code = getattr(e, "error_code", "SECURITY_ERROR")
+            error_message = getattr(e, "message", str(e)) or "Security error"
+            logger.warning(
+                f"CONNECT_SECURITY_ERROR ip={ip} user_key={user_key if user_key else 'unknown'} "
+                f"code={error_code} msg={error_message}"
+            )
+            self.security_checker.log_suspicious_activity(ip, error_code, error_message)
+            return self._build_error_response(error_message, used_global_key, successful_project_id), 403
 
         except (ValueError, KeyError, AttributeError, TypeError) as e:
 

@@ -34,6 +34,7 @@ RUN groupadd -r appuser && useradd -r -g appuser -u 1000 appuser
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    gzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder
@@ -46,6 +47,16 @@ WORKDIR /app
 # Copy application code
 COPY backend/ /app/backend/
 COPY --chown=appuser:appuser backend/ /app/backend/
+
+# Download GeoIP database if not present (for production builds)
+RUN if [ ! -f /app/backend/GeoLite2-City.mmdb ]; then \
+    echo "Downloading GeoLite2-City database..." && \
+    curl -L -o /tmp/GeoLite2-City.mmdb.gz https://cdn.jsdelivr.net/npm/geolite2-city/GeoLite2-City.mmdb.gz && \
+    gunzip /tmp/GeoLite2-City.mmdb.gz && \
+    mv /tmp/GeoLite2-City.mmdb /app/backend/GeoLite2-City.mmdb && \
+    chown appuser:appuser /app/backend/GeoLite2-City.mmdb && \
+    echo "GeoIP database downloaded successfully"; \
+    fi
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/uploads /app/backend/uploads && \

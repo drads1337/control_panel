@@ -12,7 +12,6 @@ from typing import Optional
 from sqlalchemy import func, case
 from ..core.extensions import db
 from ..models import Key, User
-from ...utils.service_helpers import get_service
 
 def _get_cached_statistics_service():
     """Get cached_statistics_service through app context (DI pattern) - requires app context"""

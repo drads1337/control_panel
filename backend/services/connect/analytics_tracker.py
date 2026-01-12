@@ -17,9 +17,24 @@ class AnalyticsTracker:
     """Handles analytics tracking and related functionality"""
     def __init__(self, activity_service=None, analytics_buffer_service=None, heartbeat_service=None):
         """Initialize AnalyticsTracker with dependencies"""
-        self._heartbeat_service = heartbeat_service
-        self._analytics_buffer_service = analytics_buffer_service
-        self._activity_service = activity_service
+        try:
+            from ...utils.service_helpers import get_service
+        except Exception:
+            get_service = None
+
+        def _get(name, provided=None):
+            if provided is not None:
+                return provided
+            if get_service:
+                try:
+                    return get_service(name)
+                except Exception:
+                    logging.warning(f"{name} not available from service container")
+            return None
+
+        self._heartbeat_service = _get("heartbeat_service", heartbeat_service)
+        self._analytics_buffer_service = _get("analytics_buffer_service", analytics_buffer_service)
+        self._activity_service = _get("activity_service", activity_service)
 
     def update_key_analytics(
         self, key_id: int, product: str, ip_address: str, serial: Optional[str] = None

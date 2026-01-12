@@ -50,9 +50,38 @@ export async function moveLicenseKey(keyId: number, productId: number): Promise<
   return response.data
 }
 
-export async function validateLicenseKey(keyValue: string): Promise<{ valid: boolean; message: string }> {
+export interface KeyValidationResponse {
+  key_id: number
+  expires_at: string | null
+  seconds_left: number | null
+  seconds_left_human: string | null
+  max_devices: number
+  current_devices: number
+  project_id: number
+  product?: {
+    id: number
+    unique_id: string
+    name: string
+    description: string
+    version: string
+    logo: string
+    banner: string
+    background: string
+    file: string
+  }
+  app_config?: string
+}
 
-  const response = await api.post(API_ENDPOINTS.KEYS_VALIDATE, { key: keyValue })
+export async function validateLicenseKey(
+  keyValue: string,
+  deviceId?: string,
+  productId?: number
+): Promise<KeyValidationResponse> {
+  const payload: { key: string; device_id?: string; product_id?: number } = { key: keyValue }
+  if (deviceId) payload.device_id = deviceId
+  if (productId) payload.product_id = productId
+
+  const response = await api.post<KeyValidationResponse>(API_ENDPOINTS.KEYS_VALIDATE, payload)
   return response.data
 }
 

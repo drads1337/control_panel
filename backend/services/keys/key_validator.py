@@ -14,7 +14,7 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from ...core.extensions import db
 from ...models.core import Project, User
 from ...models.products import Product
-from ...models.keys import Key
+from ...models.keys import Key, DeviceInfo
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import ServiceError
 
@@ -171,14 +171,22 @@ class KeyValidator:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        devices = key_obj.devices.split(",") if key_obj.devices else []
+        # Normalize stored device list (strip blanks, dedupe) and cross-check with DeviceInfo
+        devices = [
+            d.strip()
+            for d in (key_obj.devices.split(",") if key_obj.devices else [])
+            if d.strip()
+        ]
+        unique_devices = set(devices)
+        db_device_count = DeviceInfo.query.filter_by(key_id=key_obj.id).count()
+        device_count = max(len(unique_devices), db_device_count)
 
         logger.info(
-            f"DEVICE_CHECK user_key={key_obj.key} serial={serial} current_devices={len(devices)} max_devices={key_obj.max_devices}"
+            f"DEVICE_CHECK user_key={key_obj.key} serial={serial} current_devices={device_count} max_devices={key_obj.max_devices}"
         )
 
-        if serial not in devices:
-            if len(devices) < key_obj.max_devices:
+        if serial not in unique_devices:
+            if device_count < key_obj.max_devices:
 
                 return True, ""
             else:
@@ -252,7 +260,10 @@ class KeyValidator:
             Tuple of (expires_at_iso, seconds_left, human_readable_time)
         """
         if not key_obj or not key_obj.expires_at:
-            return None, None, "0 min"
+            # For non-expiring keys return a stable placeholder so clients treat the
+            # license as valid (client-side requires a non-empty expires_at or app_config).
+            never_expires = "never"
+            return never_expires, 315360000, "never"
 
         now = datetime.utcnow()
         expires_at = key_obj.expires_at.isoformat()

@@ -22,6 +22,12 @@ from ..services.files.chunked_upload_service import ChunkedUploadService
 logger = logging.getLogger(__name__)
 
 from ..middleware.auth import enforce_project_scope, require_project_isolation
+from ..middleware.mtls import require_mtls, is_mtls_enabled, verify_project_certificate_from_request, get_client_certificate_cn
+from ..services.connect.decryption_service import DecryptionService
+from ..services.connect.request_validation_service import RequestValidationService
+from ..services.connect.key_lookup_service import KeyLookupService
+from ..services.keys import KeyValidator
+from ..utils.service_exceptions import ValidationError, NotFoundError
 
 files_bp = Blueprint("files", __name__)
 
@@ -1462,6 +1468,324 @@ def download_product_file(product_identifier, file_type):
         return send_file(file_path, as_attachment=True, download_name=filename)
 
     except Exception as e:
+        return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
+
+def _validate_blob_and_get_product(blob: str, project_id: str, ip: str):
+    """
+    Helper function to validate blob and extract product information
+    Works like connect endpoint - decrypts blob, validates key, and returns product
+    
+    Returns:
+        Tuple of (key_obj, product_obj, project_id_int) or (None, None, None) on error
+    """
+    try:
+        from ..models.products import Product
+        
+        decryption_service = DecryptionService()
+        request_validator = RequestValidationService()
+        key_lookup = KeyLookupService()
+        key_validator = KeyValidator()
+        
+        # Decrypt blob
+        data, _, successful_project_id = decryption_service.decrypt_request_data(blob, project_id=project_id, ip=ip)
+        if not data:
+            logger.warning(f"Failed to decrypt blob for product file download: ip={ip}")
+            return None, None, None
+        
+        # Extract fields
+        fields = request_validator.extract_request_fields(data)
+        user_key = fields.get("user_key")
+        product_name = fields.get("product")
+        
+        if not user_key or not product_name:
+            logger.warning(f"Missing user_key or product in blob: ip={ip}")
+            return None, None, None
+        
+        # Find key
+        try:
+            key_obj, project_id_int = key_lookup.find_key_in_project(user_key, project_id)
+        except (ValidationError, NotFoundError) as e:
+            logger.warning(f"Key not found for product file download: user_key={user_key[:8]}..., error={e}")
+            return None, None, None
+        
+        # Find product by name
+        product_obj = Product.query.filter_by(name=product_name, project_id=project_id_int).first()
+        if not product_obj:
+            logger.warning(f"Product not found: product={product_name}, project_id={project_id_int}")
+            return None, None, None
+        
+        # Validate key access to product
+        is_valid, error_msg, validated_product = key_validator.validate_product_access(key_obj, product_name, project_id_int)
+        if not is_valid or not validated_product:
+            logger.warning(f"Product access denied for product file download: user_key={user_key[:8]}..., product={product_name}, error={error_msg}")
+            return None, None, None
+        
+        return key_obj, product_obj, project_id_int
+    except Exception as e:
+        logger.error(f"Error validating blob for product file download: {str(e)}", exc_info=True)
+        return None, None, None
+
+@files_bp.route("/product-files/download", methods=["POST"])
+@require_mtls
+def download_product_file_blob():
+    """
+    Download product file using blob API (like /api/connect)
+    
+    Request JSON:
+        {
+            "blob": "encrypted_data_with_user_key_and_product_name",
+            "project_id": "6117759936",
+            "file_type": "logo"  // "logo", "banner", "background", "file"/"agent"
+        }
+    
+    The blob should contain:
+        - user_key (field "a" or "user_key")
+        - product (field "e" or "product") - product name like "PUBG"
+    """
+    file_service = get_service('file_service')
+    ip = request.remote_addr
+    
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    req_json = request.get_json(silent=True) or {}
+    blob = req_json.get("blob")
+    project_id = req_json.get("project_id")
+    file_type = req_json.get("file_type")
+    
+    if not blob or not project_id or not file_type:
+        return jsonify({"error": "Missing required fields: blob, project_id, file_type"}), 400
+    
+    if is_mtls_enabled():
+        valid, msg, cn = verify_project_certificate_from_request(project_id)
+        if not valid:
+            logger.warning(f"mTLS validation failed for product file download: {msg}")
+            return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
+    
+    # Validate blob and get product
+    key_obj, product_obj, project_id_int = _validate_blob_and_get_product(blob, project_id, ip)
+    if not key_obj or not product_obj:
+        return jsonify({"error": "Invalid key or product access denied"}), 403
+    
+    try:
+        # Convert file_type "file" to "agent" (as used in server)
+        server_file_type = "agent" if file_type == "file" else file_type
+        
+        file_path, filename, error = file_service.get_product_file_path(product_obj, server_file_type)
+        if error:
+            return jsonify({"error": error}), 404
+        
+        return send_file(file_path, as_attachment=True, download_name=filename)
+    
+    except Exception as e:
+        logger.error(f"Error downloading product file via blob API: {str(e)}")
+        return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
+
+@files_bp.route("/product-files/config/download", methods=["POST"])
+@require_mtls
+def download_product_config_blob():
+    """
+    Download product config using blob API (like /api/connect)
+    
+    Request JSON:
+        {
+            "blob": "encrypted_data_with_user_key_and_product_name",
+            "project_id": "6117759936",
+            "config_id": "12345678"  // config_id or unique_id
+        }
+    """
+    file_service = get_service('file_service')
+    activity_service = get_service('activity_service')
+    ip = request.remote_addr
+    
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    req_json = request.get_json(silent=True) or {}
+    blob = req_json.get("blob")
+    project_id = req_json.get("project_id")
+    config_id = req_json.get("config_id")
+    
+    if not blob or not project_id or not config_id:
+        return jsonify({"error": "Missing required fields: blob, project_id, config_id"}), 400
+    
+    if is_mtls_enabled():
+        valid, msg, cn = verify_project_certificate_from_request(project_id)
+        if not valid:
+            logger.warning(f"mTLS validation failed for config download: {msg}")
+            return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
+    
+    # Validate blob and get product
+    key_obj, product_obj, project_id_int = _validate_blob_and_get_product(blob, project_id, ip)
+    if not key_obj or not product_obj:
+        return jsonify({"error": "Invalid key or product access denied"}), 403
+    
+    try:
+        from ..models.products import ProductFileConfig
+        
+        # Find config by config_id or unique_id
+        config = ProductFileConfig.query.filter_by(config_id=config_id, product_id=product_obj.id).first()
+        if not config:
+            config = ProductFileConfig.query.filter_by(unique_id=config_id, product_id=product_obj.id).first()
+        
+        if not config or config.product_id != product_obj.id:
+            return jsonify({"error": "Config not found"}), 404
+        
+        # Use file_service to download config
+        # Note: file_service.download_product_config expects a User object, but we have key_obj
+        # We need to find user from key_obj
+        from ..models.core import User
+        user = User.query.get(key_obj.user_id) if key_obj.user_id else None
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        response, error = file_service.download_product_config(
+            config, user, ip, request.headers.get("User-Agent")
+        )
+        if error:
+            return jsonify({"error": error}), 404
+        
+        activity_service.log_activity(
+            user,
+            "download_product_config",
+            details=f"Downloaded config {config.name} for product {product_obj.name}",
+            ip=ip,
+        )
+        
+        return response
+    
+    except Exception as e:
+        logger.error(f"Error downloading config via blob API: {str(e)}")
+        return jsonify({"error": f"Failed to download config: {str(e)}"}), 500
+
+@files_bp.route("/product-files/config/upload", methods=["POST"])
+@require_mtls
+def upload_product_config_blob():
+    """
+    Upload product config using blob API (like /api/connect)
+    
+    Request form-data:
+        - blob: "encrypted_data_with_user_key_and_product_name"
+        - project_id: "6117759936"
+        - file: <binary_file>
+        - name: "config_name" (optional)
+        - description: "config_description" (optional)
+        - version: "1.0.0" (optional)
+        - is_public: "true"/"false" (optional, default: "true")
+    """
+    file_service = get_service('file_service')
+    activity_service = get_service('activity_service')
+    ip = request.remote_addr
+    
+    blob = request.form.get("blob")
+    project_id = request.form.get("project_id")
+    file = request.files.get("file")
+    
+    if not blob or not project_id or not file:
+        return jsonify({"error": "Missing required fields: blob, project_id, file"}), 400
+    
+    if is_mtls_enabled():
+        valid, msg, cn = verify_project_certificate_from_request(project_id)
+        if not valid:
+            logger.warning(f"mTLS validation failed for config upload: {msg}")
+            return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
+    
+    # Validate blob and get product
+    key_obj, product_obj, project_id_int = _validate_blob_and_get_product(blob, project_id, ip)
+    if not key_obj or not product_obj:
+        return jsonify({"error": "Invalid key or product access denied"}), 403
+    
+    try:
+        from ..models.core import User
+        
+        # Get user from key_obj
+        user = User.query.get(key_obj.user_id) if key_obj.user_id else None
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        name = request.form.get("name", "")
+        description = request.form.get("description", "")
+        version = request.form.get("version", "1.0.0")
+        is_public = request.form.get("is_public", "true").lower() == "true"
+        
+        # Upload config using file_service
+        config_data, error = file_service.upload_product_config(
+            user, file, product_obj, name, description, version, is_public
+        )
+        if error:
+            return jsonify({"error": error}), 400
+        
+        activity_service.log_activity(
+            user,
+            "upload_product_config",
+            details=f"Uploaded product config: {config_data['name']} ({file_service.format_file_size(config_data['size'])}) for product {product_obj.name}",
+            ip=ip,
+        )
+        
+        return jsonify({
+            "message": "Product config uploaded successfully",
+            "config": config_data,
+        }), 201
+    
+    except Exception as e:
+        logger.error(f"Error uploading config via blob API: {str(e)}")
+        return jsonify({"error": f"Failed to upload config: {str(e)}"}), 500
+
+@files_bp.route("/product-files-mtls/<product_identifier>/download/<file_type>", methods=["GET"])
+@require_mtls
+def download_product_file_mtls(product_identifier, file_type):
+    """
+    Download product file using mTLS authentication (without JWT)
+    
+    This endpoint is designed for client applications that have already
+    authenticated via /api/connect and have valid mTLS certificates.
+    
+    Query parameters:
+        project_id: Project ID (required when mTLS is enabled)
+    """
+    file_service = get_service('file_service')
+    
+    # Get project_id from query parameter
+    project_id_param = request.args.get("project_id")
+    
+    if is_mtls_enabled():
+        if not project_id_param:
+            # Try to extract from certificate CN (deprecated but kept for compatibility)
+            cn = get_client_certificate_cn()
+            # Note: With universal certificates, CN doesn't contain project_id
+            # But we keep this check for backward compatibility
+            if not project_id_param:
+                return jsonify({"error": "project_id required for mTLS"}), 400
+        
+        # Verify certificate for project
+        valid, msg, cn = verify_project_certificate_from_request(project_id_param)
+        if not valid:
+            logger.warning(f"mTLS validation failed for product file download: {msg}, cn={cn}")
+            return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
+        
+        try:
+            project_id_int = int(project_id_param)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid project_id"}), 400
+    else:
+        return jsonify({"error": "mTLS is required for this endpoint"}), 403
+    
+    try:
+        from ..models.products import Product
+        
+        # Find product by ID or unique_id in the specified project
+        product = find_product_by_id_or_unique_id(product_identifier, project_id_int)
+        if not product or product.project_id != project_id_int:
+            return jsonify({"error": "Product not found"}), 404
+        
+        file_path, filename, error = file_service.get_product_file_path(product, file_type)
+        if error:
+            return jsonify({"error": error}), 404
+        
+        return send_file(file_path, as_attachment=True, download_name=filename)
+    
+    except Exception as e:
+        logger.error(f"Error downloading product file via mTLS: {str(e)}")
         return jsonify({"error": f"Failed to download file: {str(e)}"}), 500
 
 @files_bp.route("/product-files/<product_identifier>/<file_type>", methods=["DELETE"])

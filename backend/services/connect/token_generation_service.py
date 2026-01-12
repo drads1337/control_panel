@@ -3,14 +3,13 @@ Token Generation Service
 Handles token generation and storage
 Single Responsibility: Token generation and database storage
 
-SECURITY: This service REQUIRES per-project secret_key from the database.
-No fallback to TOKEN_STATIC_WORD is allowed in production.
-This ensures that if one project's secret is compromised, tokens for other projects remain secure.
+SECURITY: Tokens are random, short-lived, and bound to device/certificate fingerprints.
+Per-project secret_key is still required to ensure project isolation is configured.
 """
 
-import hashlib
 import logging
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional
 
 from ...config.config import Config
@@ -55,6 +54,8 @@ class TokenGenerationService:
         project_id: Optional[int] = None,
         expires_at: Optional[datetime] = None,
         is_classic: bool = False,
+        fingerprint: str = "",
+        cert_fingerprint: str = "",
     ) -> str:
         """
         Generate connect token for successful authentication and store it in database.
@@ -62,9 +63,9 @@ class TokenGenerationService:
         This function now stores tokens in the database for secure O(1) validation,
         preventing DoS attacks from token enumeration.
 
-        SECURITY: REQUIRES per-project secret_key from database for token generation.
-        This ensures that if one project's secret is compromised, tokens for other
-        projects remain secure. No fallbacks allowed - project.secret_key is mandatory.
+        SECURITY: Tokens are random, short-lived, and bound to device/cert fingerprints.
+        Project.secret_key is still required (isolation), even though it is not used
+        directly for token material.
 
         Args:
             product: Product name
@@ -101,7 +102,7 @@ class TokenGenerationService:
                     f"or ensure new projects have secret_key set during creation."
                 )
             
-            unique_salt = project.secret_key
+            unique_salt = project.secret_key  # kept for validation; not used in token material
             logger.debug(f"Using project {project_id} secret_key for token generation")
         except ValueError:
 
@@ -117,19 +118,29 @@ class TokenGenerationService:
                 f"Please contact support if this persists."
             ) from e
         
-        real = f"{product}-{user_key}-{serial}-{unique_salt}"
-        token = hashlib.sha256(real.encode()).hexdigest()
+        now = datetime.utcnow()
+        ttl_minutes = getattr(Config, "CONNECT_TOKEN_TTL_MIN", 15)
+        ttl_minutes = max(1, int(ttl_minutes or 15))
+
+        desired_exp = now + timedelta(minutes=ttl_minutes)
+        # Limit by provided key expiration if any
+        if expires_at:
+            desired_exp = min(desired_exp, expires_at)
+
+        token = secrets.token_hex(32)  # 64 hex chars
 
         if user_id is not None:
             try:
 
                 existing_token = ConnectToken.query.filter_by(token=token).first()
                 if existing_token:
-
-                    existing_token.last_used = datetime.utcnow()
-                    db.session.commit()
+                    existing_token.last_used = now
+                    existing_token.expires_at = desired_exp
+                    if fingerprint:
+                        existing_token.fingerprint = fingerprint
+                    if cert_fingerprint:
+                        existing_token.cert_fingerprint = cert_fingerprint
                 else:
-
                     connect_token = ConnectToken(
                         token=token,
                         user_id=user_id,
@@ -137,12 +148,15 @@ class TokenGenerationService:
                         product_name=product,
                         serial=serial,
                         is_classic=is_classic,
-                        expires_at=expires_at,
-                        created_at=datetime.utcnow()
+                        expires_at=desired_exp,
+                        created_at=now,
+                        fingerprint=fingerprint or None,
+                        cert_fingerprint=cert_fingerprint or None,
                     )
                     db.session.add(connect_token)
-                    db.session.commit()
-                    logger.debug(f"Token stored in database: {token[:20]}...")
+
+                db.session.commit()
+                logger.debug(f"Token stored in database: {token[:20]}...")
             except Exception as e:
 
                 logger.error(f"Failed to store connect token in database: {e}")

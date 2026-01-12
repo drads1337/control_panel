@@ -4,6 +4,8 @@ CRUD operations for products: create, read, update, delete
 Universal terminology for B2B/SaaS applications
 """
 
+import logging
+
 from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
@@ -20,6 +22,8 @@ from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
 from ...utils.service_exceptions import ServiceError
 from sqlalchemy.orm import joinedload
+
+logger = logging.getLogger(__name__)
 
 management_bp = Blueprint("products_management", __name__)
 
@@ -41,7 +45,18 @@ def find_product_by_id_or_unique_id(product_identifier, project_id):
             product = Product.query.filter_by(id=product_id_int, project_id=project_id).first()
             if product:
                 return product
-        except (ValueError, TypeError):
+            else:
+                # Check if product exists in a different project for better diagnostics
+                product_any_project = Product.query.filter_by(id=product_id_int).first()
+                if product_any_project:
+                    logger.warning(
+                        f"Product {product_id_int} exists but belongs to project {product_any_project.project_id}, "
+                        f"not the requested project {project_id}"
+                    )
+                else:
+                    logger.debug(f"Product {product_id_int} not found in any project")
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Error converting product_identifier to int: {e}")
             pass
     
 

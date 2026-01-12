@@ -168,6 +168,13 @@ class MTLSProjectManager:
 
         try:
             # Use single CA certificate and key
+            serial_dir = Path(os.environ.get("MTLS_SERIAL_DIR", "/tmp/mtls_serials"))
+            try:
+                serial_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            ca_serial_path = serial_dir / f"{self.ca_cert_path.stem}.srl"
+
             self._run(
                 [
                     self.openssl_bin,
@@ -181,6 +188,8 @@ class MTLSProjectManager:
                     str(self.ca_cert_path),
                     "-CAkey",
                     str(self.ca_key_path),
+                    "-CAserial",
+                    str(ca_serial_path),
                     "-CAcreateserial",
                     "-out",
                     cert_file_path,

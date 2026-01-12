@@ -23,6 +23,12 @@ class SecurityChecker:
     """Handles security validations and checks"""
 
     def __init__(self, security_service=None):
+        if security_service is None:
+            try:
+                from ...utils.service_helpers import get_service
+                security_service = get_service("security_service")
+            except Exception:
+                logging.warning("security_service not available from service container")
         self._security_service = security_service
         self.suspicious_threshold = 3
         self.suspicious_window = 3600

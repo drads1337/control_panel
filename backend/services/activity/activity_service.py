@@ -43,9 +43,14 @@ class ActivityService:
         """
         self.logger = logger or get_logger("activity_service")
 
-
         self._use_buffer_by_default = True
         
+        if analytics_buffer_service is None:
+            try:
+                from ...utils.service_helpers import get_service
+                analytics_buffer_service = get_service("analytics_buffer_service")
+            except Exception:
+                self.logger.warning("analytics_buffer_service not available from service container")
 
         self._analytics_buffer_service = analytics_buffer_service
     

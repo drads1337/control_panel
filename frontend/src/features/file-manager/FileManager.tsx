@@ -732,9 +732,12 @@ export default function FileManager() {
         onUploadFormChange={fileUpload.setUploadForm}
         onDragOver={fileUpload.handleDragOver}
         onDragLeave={fileUpload.handleDragLeave}
-        onDrop={(e) => fileUpload.handleDrop(e, (file) => {})}
-        onFileSelect={(file) => { fileUpload.setUploadForm(prev => ({ ...prev, name: file.name })); }}
-        onUpload={fileUpload.handleFileUpload}
+        onDrop={(e) => fileUpload.handleDrop(e, (file) => fileUpload.handleFileSelect(file))}
+        onFileSelect={fileUpload.handleFileSelect}
+        onUpload={() => {
+          const fileFromInput = fileUpload.fileInputRef.current?.files?.[0];
+          return fileUpload.handleFileUpload(fileFromInput);
+        }}
         onResetForm={fileUpload.resetUploadForm}
       />
     </div>

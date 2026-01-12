@@ -1,7 +1,7 @@
 import logging
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -616,7 +616,7 @@ def sign_project_csr_public(project_id):
 
         def _cert_days_left(cert_pem: str) -> float:
             cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-            remaining = cert.not_valid_after - datetime.utcnow()
+            remaining = cert.not_valid_after_utc - datetime.now(timezone.utc)
             return remaining.total_seconds() / 86400.0
 
         def _cert_fingerprint_and_serial(cert_pem: str) -> tuple[str, str]:
@@ -651,7 +651,7 @@ def sign_project_csr_public(project_id):
                                 "source": "cache",
                             }
                         ),
-                        200,
+                        201,
                     )
                 else:
                     logging.info(

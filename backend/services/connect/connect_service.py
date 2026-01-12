@@ -59,13 +59,44 @@ class ConnectService:
         self._challenge_service = challenge_service
         self._auth_service = auth_service
 
+        # Resolve optional dependencies via DI container if available
+        try:
+            from ...utils.service_helpers import get_service
+        except Exception:
+            get_service = None
+
+        def _get(name, fallback=None):
+            if fallback is not None:
+                return fallback
+            if get_service:
+                try:
+                    return get_service(name)
+                except Exception:
+                    logger.warning(f"{name} not available from service container")
+            return None
+
+        security_service = _get("security_service")
+        analytics_buffer_service = _get("analytics_buffer_service")
+        heartbeat_service = _get("heartbeat_service")
+        activity_service = _get("activity_service")
+
         # Pass challenge_service to orchestrator and challenge_validator
-        self.orchestrator = ConnectOrchestrator(challenge_service=challenge_service)
+        self.orchestrator = ConnectOrchestrator(
+            challenge_service=challenge_service,
+            security_service=security_service,
+            analytics_buffer_service=analytics_buffer_service,
+            heartbeat_service=heartbeat_service,
+            activity_service=activity_service,
+        )
 
         self.key_validator = KeyValidator()
-        self.security_checker = SecurityChecker()
+        self.security_checker = SecurityChecker(security_service=security_service)
         self.device_manager = DeviceManager()
-        self.analytics_tracker = AnalyticsTracker()
+        self.analytics_tracker = AnalyticsTracker(
+            activity_service=activity_service,
+            analytics_buffer_service=analytics_buffer_service,
+            heartbeat_service=heartbeat_service,
+        )
         self.response_builder = ResponseBuilder()
         self.key_lookup = KeyLookupService()
         self.request_validator = RequestValidationService()
@@ -163,40 +194,32 @@ class ConnectService:
                 user_key, client_project_id
             )
 
-            if self.security_checker.check_fingerprint_blocked(fingerprint, project_id):
-                logger.warning(
-                    f"CHALLENGE_FINGERPRINT_BLOCKED fingerprint={fingerprint} user_key={user_key} project_id={project_id}"
-                )
-                raise SecurityError(
-                    "Access denied: Your device fingerprint has been blocked",
-                    error_code="FINGERPRINT_BLOCKED",
-                    context={"fingerprint": fingerprint, "project_id": project_id}
-                )
-
-            # SECURITY: Library hash verification
-            if library_hash and key_obj:
+            # SECURITY: Library hash verification first, fail-fast on mismatch
+            if key_obj:
                 try:
                     from ...utils.service_helpers import get_service
                     library_hash_service = get_service('library_hash_service')
                     is_valid, error_msg, entity_type = library_hash_service.validate_library_hash(
-                        key_obj, library_hash
+                        key_obj, library_hash or ""
                     )
                     
                     if not is_valid:
                         entity_name = "Agent" if entity_type == "agent" else "Product"
                         entity_id = key_obj.agent_id if entity_type == "agent" else key_obj.product_id
+                        hash_prefix = library_hash[:16] + "..." if library_hash else "missing"
                         logger.warning(
                             f"CHALLENGE_LIBRARY_HASH_MISMATCH ip={ip} user_key={user_key} "
                             f"project_id={project_id} {entity_name.lower()}_id={entity_id} "
-                            f"hash={library_hash[:16]}..."
+                            f"hash={hash_prefix} error_msg={error_msg}"
                         )
+                        user_friendly_msg = error_msg if error_msg else f"{entity_name} library build verification failed. Please update to the latest version."
                         raise SecurityError(
-                            f"{entity_name} library build verification failed. Please update to the latest version.",
+                            user_friendly_msg,
                             error_code="LIBRARY_HASH_MISMATCH",
                             context={
                                 "entity_type": entity_type,
                                 "entity_id": entity_id,
-                                "hash": library_hash[:16] + "..."
+                                "hash": hash_prefix
                             }
                         )
                 except SecurityError:
@@ -207,6 +230,17 @@ class ConnectService:
                         f"CHALLENGE_LIBRARY_HASH_CHECK_ERROR ip={ip} user_key={user_key} error={e}",
                         exc_info=True
                     )
+
+
+            if self.security_checker.check_fingerprint_blocked(fingerprint, project_id):
+                logger.warning(
+                    f"CHALLENGE_FINGERPRINT_BLOCKED fingerprint={fingerprint} user_key={user_key} project_id={project_id}"
+                )
+                raise SecurityError(
+                    "Access denied: Your device fingerprint has been blocked",
+                    error_code="FINGERPRINT_BLOCKED",
+                    context={"fingerprint": fingerprint, "project_id": project_id}
+                )
 
 
             if not self._challenge_service:
@@ -241,6 +275,16 @@ class ConnectService:
 
             logger.warning(f"CHALLENGE_NOT_FOUND ip={ip} user_key={user_key} error={e.message}")
             raise
+        except SecurityError as e:
+            error_code = getattr(e, 'error_code', 'SECURITY_ERROR')
+            error_message = getattr(e, 'message', str(e)) or "Access denied"
+            logger.warning(
+                f"CHALLENGE_SECURITY_ERROR ip={ip} user_key={user_key} code={error_code} msg={error_message}"
+            )
+            return {
+                "error": error_code,
+                "msg": error_message,
+            }, 403
         except Exception as e:
             import traceback
             error_traceback = traceback.format_exc()
@@ -272,7 +316,14 @@ class ConnectService:
         return self.orchestrator.process_connect_request(enc_data, ip, user_agent, project_id)
 
     def handle_classic_connect_request(
-        self, token: Optional[str], username: Optional[str], password: Optional[str], ip: str, user_agent: str = ""
+        self,
+        token: Optional[str],
+        username: Optional[str],
+        password: Optional[str],
+        ip: str,
+        user_agent: str = "",
+        fingerprint: Optional[str] = None,
+        cert_fingerprint: Optional[str] = None,
     ) -> Tuple[Dict[str, Any], int]:
         """
         Handle classic connect request
@@ -320,6 +371,22 @@ class ConnectService:
                 if connect_token.expires_at and connect_token.expires_at < datetime.utcnow():
                     logger.warning(f"TOKEN_EXPIRED ip={ip} token={token[:20]}...")
                     return {"error": "Token expired"}, 401
+
+                if connect_token.fingerprint and not fingerprint:
+                    logger.warning(f"TOKEN_FINGERPRINT_REQUIRED ip={ip} token={token[:20]}...")
+                    return {"error": "Token requires device fingerprint"}, 401
+
+                if connect_token.fingerprint and fingerprint and connect_token.fingerprint != fingerprint:
+                    logger.warning(f"TOKEN_FINGERPRINT_MISMATCH ip={ip} token={token[:20]}...")
+                    return {"error": "Token bound to another device"}, 401
+
+                if connect_token.cert_fingerprint and not cert_fingerprint:
+                    logger.warning(f"TOKEN_CERT_REQUIRED ip={ip} token={token[:20]}...")
+                    return {"error": "Token requires client certificate"}, 401
+
+                if connect_token.cert_fingerprint and cert_fingerprint and connect_token.cert_fingerprint != cert_fingerprint:
+                    logger.warning(f"TOKEN_CERT_MISMATCH ip={ip} token={token[:20]}...")
+                    return {"error": "Token bound to another certificate"}, 401
 
                 connect_token.last_used = datetime.utcnow()
                 db.session.commit()

@@ -1133,26 +1133,54 @@ class FileService:
         file_size = file.tell()
         file.seek(0)
 
-        can_upload, message = self.check_storage_limit(user, file_size)
-        if not can_upload:
-            return None, message
-
         try:
             original_filename = file.filename
+            safe_filename = secure_filename(original_filename)
+            if not safe_filename:
+                return None, "Invalid file name"
 
-            timestamp = int(time.time())
-            filename = secure_filename(file.filename)
-            name_part, ext = os.path.splitext(filename)
-            unique_filename = f"{name_part}_{timestamp}{ext}"
-
-            upload_path = os.path.join(
-                self.get_upload_path(), "products", str(product.id), "extra"
-            )
+            upload_path = os.path.join(self.get_upload_path(), "products", str(product.id))
             if not os.path.exists(upload_path):
                 os.makedirs(upload_path)
 
-            file_path = os.path.join(upload_path, unique_filename)
+            existing_file = ProductExtraFile.query.filter_by(
+                product_id=product.id, original_filename=original_filename
+            ).first()
+            if not existing_file and name:
+                existing_file = ProductExtraFile.query.filter_by(
+                    product_id=product.id, name=name
+                ).first()
+
+            size_to_check = file_size
+            if existing_file:
+                size_to_check = max(0, file_size - int(existing_file.file_size or 0))
+
+            can_upload, message = self.check_storage_limit(user, size_to_check)
+            if not can_upload:
+                return None, message
+
+            if existing_file:
+                try:
+                    if os.path.exists(existing_file.file_path):
+                        os.remove(existing_file.file_path)
+                except Exception as remove_err:
+                    self.logger.warning(
+                        f"Failed to remove old extra file at {existing_file.file_path}: {remove_err}"
+                    )
+                db.session.delete(existing_file)
+                db.session.flush()
+
+            file_path = os.path.join(upload_path, safe_filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as remove_err:
+                    self.logger.warning(
+                        f"Failed to remove stale file at {file_path}: {remove_err}"
+                    )
+
             file.save(file_path)
+            name_part, ext = os.path.splitext(safe_filename)
 
 
 
