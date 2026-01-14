@@ -223,7 +223,7 @@ const LicenseKeysMain: React.FC<LicenseKeysMainProps> = ({ onSwitchToProductData
         products={products}
         onClearFilters={handleClearFilters}
         viewMode={viewMode}
-        onViewModeChange={canViewKeys ? handleViewModeChange : undefined}
+        onViewModeChange={handleViewModeChange}
         canViewAll={canViewKeys}
       />
 

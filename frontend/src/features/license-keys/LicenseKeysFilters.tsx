@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Search, X } from 'lucide-react';
+import { ConditionalRender } from '@/shared/ui/components/rbac';
 
 interface LicenseKeysFiltersProps {
   filters: {
@@ -40,7 +41,7 @@ const LicenseKeysFilters = React.memo<LicenseKeysFiltersProps>(({
   };
 
   const isFiltered = filters.status !== 'all' || filters.productId !== 'all' || filters.search !== '';
-  const showViewToggle = canViewAll && onViewModeChange;
+  const showViewToggle = onViewModeChange;
 
   return (
     <div className="w-full space-y-4 py-4">
@@ -80,12 +81,16 @@ const LicenseKeysFilters = React.memo<LicenseKeysFiltersProps>(({
                 </SelectTrigger>
                 <SelectContent className="text-xs">
                   <SelectItem value="my" className="text-xs">My Keys</SelectItem>
-                  <SelectItem value="all" className="text-xs">All Keys</SelectItem>
+                  <ConditionalRender permissions={['keys.view', 'keys.manage']}>
+                    <SelectItem value="all" className="text-xs">All Keys</SelectItem>
+                  </ConditionalRender>
                 </SelectContent>
               </Select>
               <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden h-8 **:data-[slot=badge]:size-4 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 **:data-[slot=tabs-trigger]:text-xs md:flex">
                 <TabsTrigger value="my">My Keys</TabsTrigger>
-                <TabsTrigger value="all">All Keys</TabsTrigger>
+                <ConditionalRender permissions={['keys.view', 'keys.manage']}>
+                  <TabsTrigger value="all">All Keys</TabsTrigger>
+                </ConditionalRender>
               </TabsList>
             </Tabs>
           )}
