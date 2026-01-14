@@ -53,6 +53,7 @@ class AnalyticsBufferService:
         
 
         self.last_flush_time_key = f"{self.buffer_prefix}:last_flush_time"
+        self.key_analytics_last_flush_time_key = f"{self.buffer_prefix}:key_analytics:last_flush_time"
         self.max_flush_interval = 60
 
     def buffer_user_activity(
@@ -242,6 +243,46 @@ class AnalyticsBufferService:
             redis_client.client.expire(self.key_analytics_counter_key, self.buffer_ttl)
             
             logger.debug(f"Buffered key analytics update: key_id={key_id}, product={product}, serial={serial}")
+
+            buffer_size = redis_client.client.scard(f"{self.key_analytics_buffer_key}:keys")
+            flush_threshold = max(min(self.buffer_max_size // 4, 10), 5)
+
+            last_flush_time = redis_client.client.get(self.key_analytics_last_flush_time_key)
+            should_flush_by_time = False
+            if last_flush_time:
+                try:
+                    last_flush_ts = float(last_flush_time)
+                    time_since_flush = datetime.utcnow().timestamp() - last_flush_ts
+                    if time_since_flush >= self.max_flush_interval:
+                        should_flush_by_time = True
+                        logger.debug(
+                            f"Key analytics last flush was {time_since_flush:.1f}s ago, triggering periodic flush"
+                        )
+                except (ValueError, TypeError):
+                    should_flush_by_time = True
+            else:
+                if buffer_size > 0:
+                    redis_client.client.set(
+                        self.key_analytics_last_flush_time_key,
+                        datetime.utcnow().timestamp(),
+                        ex=self.buffer_ttl,
+                    )
+
+            if buffer_size >= flush_threshold or should_flush_by_time:
+                logger.info(
+                    f"Key analytics buffer size ({buffer_size}) reached flush threshold ({flush_threshold}) "
+                    f"or max interval exceeded, flushing to database"
+                )
+                try:
+                    flushed = self.flush_key_analytics()
+                    if flushed > 0:
+                        redis_client.client.set(
+                            self.key_analytics_last_flush_time_key,
+                            datetime.utcnow().timestamp(),
+                            ex=self.buffer_ttl,
+                        )
+                except Exception as flush_error:
+                    logger.error(f"Failed to flush key analytics buffer: {flush_error}")
             return True
             
         except Exception as e:
@@ -628,6 +669,15 @@ class AnalyticsBufferService:
         except Exception as e:
             logger.error(f"Error flushing key analytics: {e}")
         
+        try:
+            redis_client.client.set(
+                self.key_analytics_last_flush_time_key,
+                datetime.utcnow().timestamp(),
+                ex=self.buffer_ttl,
+            )
+        except Exception as ts_error:
+            logger.debug(f"Failed to update key analytics last flush time: {ts_error}")
+
         return flushed_count
 
     def flush_all(self, activity_batch_size: int = 100) -> Dict[str, int]:

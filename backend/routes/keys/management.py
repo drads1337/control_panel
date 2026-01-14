@@ -708,10 +708,11 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
 def delete_key(key_id, current_user, project_id=None):
     """Delete a key"""
 
-    if not current_user:
+    # Services needed for logging and deletion
+    activity_service = get_service('activity_service')
+    key_crud_service = get_service('key_crud_service')
 
-        activity_service = get_service('activity_service')
-        key_crud_service = get_service('key_crud_service')
+    if not current_user:
         return jsonify({"error": "User not found"}), 404
 
     if not current_user.project_id:

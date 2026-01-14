@@ -36,7 +36,8 @@ class RateLimitConfig:
         "global": "100 per minute",
         "auth": "10 per minute",
         "connect": "100 per minute",
-        "keys": "20 per minute",
+        # Keys endpoints are polled frequently; loosen the cap to avoid 429s
+        "keys": "1000 per minute",
         "projects": "90 per minute",
         "users": "60 per minute",
         "products": "45 per minute",
@@ -51,7 +52,8 @@ class RateLimitConfig:
         "global": "60 per minute",
         "auth": "5 per minute",
         "connect": "60 per minute",
-        "keys": "10 per minute",
+        # Keys endpoints: effectively remove rate limit for management UI
+        "keys": "1000 per minute",
         "projects": "60 per minute",
         "users": "30 per minute",
         "products": "30 per minute",
