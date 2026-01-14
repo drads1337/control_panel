@@ -5,7 +5,6 @@ export {
   RoleRender,
   AdminRender,
   OwnerRender,
-  SellerRender,
-  DeveloperRender
+  SellerRender
 } from './conditional-render'
 

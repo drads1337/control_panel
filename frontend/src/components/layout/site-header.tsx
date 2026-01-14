@@ -21,7 +21,9 @@ import { SearchBar } from "@/components/ui/search-bar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthContext } from "@/app/providers/auth-provider"
 import { getProject } from "@/entities/project"
-import { cn } from "@/lib/utils.ts"
+import { cn } from "@/lib/utils"
+import { usePermissions } from "@/shared/hooks/use-permissions"
+import { hasManagementAccess } from "@/shared/lib/rbac"
 import lightLogo from "@/assets/light-logo.png"
 import darkLogo from "@/assets/dark-logo.png"
 import { NotificationBell } from "./NotificationBell"
@@ -37,15 +39,68 @@ interface SiteHeaderProps {
   title?: string
 }
 
-const navigationItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/management-page", label: "Management", icon: Settings },
-  { path: "/users", label: "Users", icon: Users },
+interface NavigationItem {
+  path: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  checkAccess: (permissions: ReturnType<typeof usePermissions>, user: any) => boolean
+}
+
+const allNavigationItems: NavigationItem[] = [
+  { 
+    path: "/dashboard", 
+    label: "Dashboard", 
+    icon: LayoutDashboard,
+    checkAccess: () => true // Dashboard is accessible to all authenticated users
+  },
+  { 
+    path: "/management-page", 
+    label: "Management", 
+    icon: Settings,
+    checkAccess: (_, user) => hasManagementAccess(user).hasAccess
+  },
+  { 
+    path: "/users", 
+    label: "Users", 
+    icon: Users,
+    checkAccess: (permissions) => 
+      permissions.hasPermission("employees.view") ||
+      permissions.hasPermission("clients.view") ||
+      permissions.hasPermission("rbac.view") ||
+      permissions.hasPermission("referrals.view")
+  },
   // { path: "/remote-control", label: "Remote Control", icon: Monitor }, // Temporarily hidden
-  { path: "/security", label: "Security", icon: Shield },
-  { path: "/webhooks", label: "Webhooks", icon: Webhook },
-  { path: "/logs", label: "Logs", icon: FileText },
-  { path: "/project-settings", label: "Project Settings", icon: Settings2 },
+  { 
+    path: "/security", 
+    label: "Security", 
+    icon: Shield,
+    checkAccess: (permissions) =>
+      permissions.hasPermission("security.view_ips") ||
+      permissions.hasPermission("security.view_hwids") ||
+      permissions.hasPermission("security.view_fingerprints") ||
+      permissions.hasPermission("security.view_logs") ||
+      permissions.hasPermission("security.manage_rules")
+  },
+  { 
+    path: "/webhooks", 
+    label: "Webhooks", 
+    icon: Webhook,
+    checkAccess: (permissions) => permissions.hasPermission("webhooks.view")
+  },
+  { 
+    path: "/logs", 
+    label: "Logs", 
+    icon: FileText,
+    checkAccess: (permissions) => 
+      permissions.hasPermission("logs.view") ||
+      permissions.hasPermission("security.view_logs")
+  },
+  { 
+    path: "/project-settings", 
+    label: "Project Settings", 
+    icon: Settings2,
+    checkAccess: (permissions) => permissions.hasPermission("system.manage")
+  },
 ]
 
 export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
@@ -54,6 +109,8 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
   const { toggleSidebar } = useSidebar()
   const { resolvedTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const permissions = usePermissions()
+  const { isAdmin, isOwner } = permissions
   
   const { data: project } = useQuery({
     queryKey: ['project', user?.project_id],
@@ -64,6 +121,11 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
   
   const projectName = project?.name || title
   const logoImage = resolvedTheme === "dark" ? darkLogo : lightLogo
+
+  // Filter navigation items based on user permissions
+  const navigationItems = allNavigationItems.filter(item => 
+    item.checkAccess(permissions, user)
+  )
 
   const handleLogout = async () => {
     await logout()
@@ -108,6 +170,16 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
             <h1 className="text-xs sm:text-sm font-semibold tracking-tight truncate">
               {projectName}
             </h1>
+            {/* Token Balance */}
+            {user?.token_balance !== undefined && !isAdmin && !isOwner && (
+              <>
+                <div className="h-3 sm:h-3.5 w-[1.5px] bg-border opacity-50" />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="tabular-nums">{user.token_balance.toLocaleString()}</span>
+                  <span>token</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -127,53 +199,61 @@ export function SiteHeader({ title = "Dashboard" }: SiteHeaderProps) {
                 <SheetTitle className="text-left">Navigation</SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 mt-6">
-                {navigationItems.map((item) => {
-                  const isActive = location.pathname === item.path
-                  const Icon = item.icon
-                  
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                      )}
-                    >
-                      <Icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                      <span>{item.label}</span>
-                    </Link>
-                  )
-                })}
+                {navigationItems.length > 0 ? (
+                  navigationItems.map((item) => {
+                    const isActive = location.pathname === item.path
+                    const Icon = item.icon
+                    
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                      >
+                        <Icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
+                        <span>{item.label}</span>
+                      </Link>
+                    )
+                  })
+                ) : (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    No navigation items available
+                  </div>
+                )}
               </nav>
             </SheetContent>
           </Sheet>
 
           {/* Navigation Pills - Desktop */}
           <nav className="hidden md:flex items-center gap-1 overflow-x-auto no-scrollbar mask-linear-fade flex-1 min-w-0">
-            {navigationItems.map((item) => {
-              const isActive = location.pathname === item.path
-              const Icon = item.icon
-              
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 ease-in-out border border-transparent whitespace-nowrap",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]" // Активная: Контрастная, с легкой тенью
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50" // Неактивная: Прозрачная
-                  )}
-                >
-                  <Icon className={cn("h-3 w-3", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
+            {navigationItems.length > 0 ? (
+              navigationItems.map((item) => {
+                const isActive = location.pathname === item.path
+                const Icon = item.icon
+                
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200 ease-in-out border border-transparent whitespace-nowrap",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]" // Активная: Контрастная, с легкой тенью
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent/50" // Неактивная: Прозрачная
+                    )}
+                  >
+                    <Icon className={cn("h-3 w-3", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })
+            ) : null}
           </nav>
 
         {/* Search Input */}

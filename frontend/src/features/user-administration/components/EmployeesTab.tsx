@@ -492,12 +492,12 @@ const EmployeesTab: React.FC<EmployeesTabProps> = ({
   error,
   total,
   deleteExistingUser,
-  employeeRolesFilter = ["admin", "seller", "developer", "moderator"],
+  employeeRolesFilter = ["admin", "seller", "moderator"],
 }) => {
   const { user: currentUser } = useAuthContext()
   const isMobile = useMediaQuery("(max-width: 768px)")
   const activeRolesFilter =
-    employeeRolesFilter || ["admin", "seller", "developer", "moderator"]
+    employeeRolesFilter || ["admin", "seller", "moderator"]
 
   const { hasPermission } = usePermissions()
   const canCreateUsers = hasPermission("employees.create")

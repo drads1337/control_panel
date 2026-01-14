@@ -66,8 +66,10 @@ export async function updateUser(userId: number, userData: UserUpdateData): Prom
 }
 
 export async function deleteUser(userId: number): Promise<void> {
-
-  await api.delete(`${API_ENDPOINTS.USERS}/${userId}`)
+  // Ensure credentials are sent with DELETE request for cookie-based JWT auth
+  await api.delete(`${API_ENDPOINTS.USERS}/${userId}`, {
+    withCredentials: true
+  })
 }
 
 export async function getUserStats(): Promise<UserStats> {
@@ -117,7 +119,7 @@ export async function getEmployees(params?: {
   if (params?.project_id) requestParams.project_id = params.project_id.toString()
   
   // Exclude client role - employees are all users except clients
-  requestParams.roles = ['admin', 'moderator', 'developer', 'seller', 'support', 'owner']
+  requestParams.roles = ['admin', 'moderator', 'seller', 'owner']
   
   const response = await api.get(API_ENDPOINTS.USERS, { params: requestParams })
   return response.data

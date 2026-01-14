@@ -6,8 +6,6 @@ const ROLE_HIERARCHY: Record<string, number> = {
   admin: 90,
   manager: 80,
   seller: 70,
-  developer: 60,
-  support: 50,
   client: 10,
 }
 
@@ -17,8 +15,6 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   admin: 'Administrator',
   manager: 'Manager',
   seller: 'Seller',
-  developer: 'Developer',
-  support: 'Support',
   client: 'Client',
   moderator: 'Moderator',
 }
@@ -29,8 +25,6 @@ const ROLE_COLORS: Record<string, string> = {
   admin: 'text-red-600 dark:text-red-400',
   manager: 'text-blue-600 dark:text-blue-400',
   seller: 'text-green-600 dark:text-green-400',
-  developer: 'text-yellow-600 dark:text-yellow-400',
-  support: 'text-cyan-600 dark:text-cyan-400',
   client: 'text-gray-600 dark:text-gray-400',
   moderator: 'text-orange-600 dark:text-orange-400',
 }
@@ -119,7 +113,7 @@ export function canAccessFeature(user: User | null, feature: string): boolean {
 
   // Some features might be role-based
   const featureRoleMap: Record<string, string[]> = {
-    dashboard: ['owner', 'admin', 'manager', 'seller', 'developer', 'support'],
+    dashboard: ['owner', 'admin', 'manager', 'seller'],
     analytics: ['owner', 'admin', 'manager'],
     settings: ['owner', 'admin'],
   }
@@ -208,21 +202,6 @@ export function isSeller(user: User | null): boolean {
   return user.roles?.includes('seller') ?? false
 }
 
-/**
- * Check if user is a developer
- */
-export function isDeveloper(user: User | null): boolean {
-  if (!user) return false
-  return user.roles?.includes('developer') ?? false
-}
-
-/**
- * Check if user is support staff
- */
-export function isSupport(user: User | null): boolean {
-  if (!user) return false
-  return user.roles?.includes('support') ?? false
-}
 
 /**
  * Check if user is a client

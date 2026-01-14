@@ -570,29 +570,31 @@ def create_custom_key(current_user, project_id=None, validated_data=None):
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
                 duration_hours=duration_hours,
-                project_id=key_project_id
+                project_id=key_project_id,
+                max_devices=max_devices
             )
             
-            if key_price > 0:
+            if key_price <= 0:
+                return jsonify({"error": "No price configured for this product. Please configure prices before creating keys."}), 400
 
-                db.session.refresh(current_user)
-                
+            db.session.refresh(current_user)
+            
 
-                if current_user.token_balance < key_price:
-                    return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
-                
+            if current_user.token_balance < key_price:
+                return jsonify({"error": f"Insufficient balance. Required: {key_price} tokens, Available: {current_user.token_balance} tokens"}), 400
+            
 
-                success, error_msg, _ = balance_service.deduct_balance(
-                    current_user=current_user,
-                    target_user_id=current_user.id,
-                    amount=key_price,
-                    reason=f"Custom key creation: {duration_hours} hours for product {product.name}",
-                    ip_address=request.remote_addr,
-                    commit=False
-                )
-                
-                if not success:
-                    return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
+            success, error_msg, _ = balance_service.deduct_balance(
+                current_user=current_user,
+                target_user_id=current_user.id,
+                amount=key_price,
+                reason=f"Custom key creation: {duration_hours} hours for product {product.name}",
+                ip_address=request.remote_addr,
+                commit=False
+            )
+            
+            if not success:
+                return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
 
         key = Key(
             key=custom_key,
@@ -668,6 +670,9 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
 
     activity_service = get_service('activity_service')
     key_crud_service = get_service('key_crud_service')
+    balance_service = get_service('balance_service')
+    price_calculation_service = get_service('price_calculation_service')
+    
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
@@ -684,8 +689,49 @@ def update_key(key_id, current_user, project_id=None, validated_data=None):
     if not can_manage_key(current_user, key, "keys.edit"):
         return jsonify({"error": "You do not have permission to edit this key"}), 403
 
+    # Store old max_devices for price calculation
+    old_max_devices = key.max_devices
 
     update_data = {k: v for k, v in validated_data.items() if v is not None}
+
+    # Handle max_devices increase: charge additional price
+    if "max_devices" in update_data and update_data["max_devices"] > old_max_devices:
+        new_max_devices = update_data["max_devices"]
+        is_owner = RBACManager.is_owner(current_user)
+        is_admin = RBACManager.is_admin(current_user)
+        
+        if not is_owner and not is_admin and key.product_id and current_user.project_id:
+            # Calculate price difference
+            old_price = price_calculation_service.calculate_key_price(
+                product_id=key.product_id,
+                duration_hours=key.duration_hours,
+                project_id=current_user.project_id,
+                max_devices=old_max_devices
+            )
+            new_price = price_calculation_service.calculate_key_price(
+                product_id=key.product_id,
+                duration_hours=key.duration_hours,
+                project_id=current_user.project_id,
+                max_devices=new_max_devices
+            )
+            price_difference = new_price - old_price
+            
+            if price_difference > 0:
+                db.session.refresh(current_user)
+                if current_user.token_balance < price_difference:
+                    return jsonify({"error": f"Insufficient balance. Required: {price_difference} tokens for additional devices, Available: {current_user.token_balance} tokens"}), 400
+                
+                success, error_msg, _ = balance_service.deduct_balance(
+                    current_user=current_user,
+                    target_user_id=current_user.id,
+                    amount=price_difference,
+                    reason=f"Key update: increased max_devices from {old_max_devices} to {new_max_devices} for key {key.key[:8]}...",
+                    ip_address=request.remote_addr,
+                    commit=False
+                )
+                
+                if not success:
+                    return jsonify({"error": f"Failed to deduct balance: {error_msg}"}), 400
 
     key, error = key_crud_service.update_key(current_user, key.id, update_data)
     if error:
@@ -772,13 +818,17 @@ def reset_key(key_id, current_user, project_id=None):
 
         from ...utils.rbac_utils import RBACManager
         
+        balance_service = get_service('balance_service')
+        price_calculation_service = get_service('price_calculation_service')
+        
         is_owner = RBACManager.is_owner(current_user)
         is_admin = RBACManager.is_admin(current_user)
         
         if not is_owner and not is_admin and key.product_id and current_user.project_id:
             reset_price = price_calculation_service.get_key_price_for_reset(
                 product_id=key.product_id,
-                project_id=current_user.project_id
+                project_id=current_user.project_id,
+                max_devices=key.max_devices
             )
             
             if reset_price > 0:

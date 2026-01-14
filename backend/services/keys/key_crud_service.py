@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from sqlalchemy.orm import joinedload
 
 from ...core.extensions import db
-from ...models.core import User
+from ...models.core import User, UserProductPermission
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
@@ -266,29 +266,31 @@ class KeyCRUDService:
             key_price = price_calculation_service.calculate_key_price(
                 product_id=product.id,
                 duration_hours=duration_hours,
-                project_id=user.project_id
+                project_id=user.project_id,
+                max_devices=max_devices
             )
             
-            if key_price > 0:
+            if key_price <= 0:
+                raise ValidationError("No price configured for this product. Please configure prices before creating keys.")
+            
+            db.session.refresh(user)
+            
 
-                db.session.refresh(user)
-                
+            if user.token_balance < key_price:
+                raise ValidationError(f"Insufficient balance. Required: {key_price} tokens, Available: {user.token_balance} tokens")
+            
 
-                if user.token_balance < key_price:
-                    raise ValidationError(f"Insufficient balance. Required: {key_price} tokens, Available: {user.token_balance} tokens")
-                
-
-                success, error_msg, _ = balance_service.deduct_balance(
-                    current_user=user,
-                    target_user_id=user.id,
-                    amount=key_price,
-                    reason=f"Key creation: {duration_hours} hours for product {product.name}",
-                    ip_address=None,
-                    commit=False
-                )
-                
-                if not success:
-                    raise ValidationError(f"Failed to deduct balance: {error_msg}")
+            success, error_msg, _ = balance_service.deduct_balance(
+                current_user=user,
+                target_user_id=user.id,
+                amount=key_price,
+                reason=f"Key creation: {duration_hours} hours for product {product.name}",
+                ip_address=None,
+                commit=False
+            )
+            
+            if not success:
+                raise ValidationError(f"Failed to deduct balance: {error_msg}")
 
         if not self._key_generation_service:
             raise ServiceError(
@@ -400,20 +402,73 @@ class KeyCRUDService:
             rbac_service = self._rbac_service
             if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
                 has_keys_view = rbac_service.check_permission(user.id, "keys.view")
-                if not has_keys_view:
+                has_keys_manage = rbac_service.check_permission(user.id, "keys.manage")
+                
+                if not has_keys_view and not has_keys_manage:
+                    # No permission to view all keys - show only own keys, but still filter by product access
                     query = query.filter_by(user_id=user.id)
                     self.logger.info(
-                        f"🔒 Filtering keys by user_id={user.id} (user doesn't have keys.view permission)"
+                        f"🔒 Filtering keys by user_id={user.id} (user doesn't have keys.view or keys.manage permission)"
                     )
+                    # Apply product access filter even for own keys
+                    user_product_permissions = UserProductPermission.query.filter_by(
+                        user_id=user.id, has_access=True
+                    ).all()
+                    allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                    if allowed_product_ids:
+                        query = query.filter(Key.product_id.in_(allowed_product_ids))
+                        self.logger.info(
+                            f"🔒 Filtering own keys by product access: {allowed_product_ids}"
+                        )
+                    else:
+                        # User has no product access - return empty result
+                        query = query.filter(Key.id < 0)  # This will return no results
+                        self.logger.info(
+                            f"🔒 User {user.id} has no product access - returning empty result (own keys only)"
+                        )
                 elif my_keys_only:
+                    # User requested only their keys, but still filter by product access
                     query = query.filter_by(user_id=user.id)
                     self.logger.info(
                         f"🔒 Filtering keys by user_id={user.id} (my_keys filter enabled)"
                     )
+                    # Apply product access filter even for my_keys
+                    user_product_permissions = UserProductPermission.query.filter_by(
+                        user_id=user.id, has_access=True
+                    ).all()
+                    allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                    if allowed_product_ids:
+                        query = query.filter(Key.product_id.in_(allowed_product_ids))
+                        self.logger.info(
+                            f"🔒 Filtering keys by product access: {allowed_product_ids} (my_keys mode)"
+                        )
+                    else:
+                        # User has no product access - return empty result by using impossible condition
+                        query = query.filter(Key.id < 0)  # This will return no results
+                        self.logger.info(
+                            f"🔒 User {user.id} has no product access - returning empty result (my_keys mode)"
+                        )
                 else:
+                    # User has keys.view or keys.manage - show all keys in project, but filter by product access
                     self.logger.info(
-                        f"👁️ User {user.id} has keys.view permission - showing all keys in project"
+                        f"👁️ User {user.id} has keys.view or keys.manage permission - showing all keys in project (filtered by product access)"
                     )
+                    # Get user's allowed product IDs
+                    user_product_permissions = UserProductPermission.query.filter_by(
+                        user_id=user.id, has_access=True
+                    ).all()
+                    allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                    if allowed_product_ids:
+                        query = query.filter(Key.product_id.in_(allowed_product_ids))
+                        self.logger.info(
+                            f"🔒 Filtering keys by product access: {allowed_product_ids} (all keys mode)"
+                        )
+                    else:
+                        # User has no product access - return empty result by using impossible condition
+                        query = query.filter(Key.id < 0)  # This will return no results
+                        self.logger.info(
+                            f"🔒 User {user.id} has no product access - returning empty result (all keys mode)"
+                        )
             elif my_keys_only:
                 query = query.filter_by(user_id=user.id)
                 self.logger.info(

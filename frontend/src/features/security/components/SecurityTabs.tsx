@@ -147,7 +147,7 @@ export default function SecurityTabs({
   }
 
   return (
-    <div className="space-y-3 xs:space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="flex flex-col gap-3 md:gap-4">
       <SecurityStatsCards 
         stats={stats} 
         loading={loading}

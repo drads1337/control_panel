@@ -12,6 +12,7 @@ import { Search, X, SlidersHorizontal } from "lucide-react"
 import type { GeoJSONSource } from "mapbox-gl"
 import { getMapRequests, type MapRequestPoint, type MapCity } from "@/entities/dashboard/api/dashboard"
 import { useQuery } from "@tanstack/react-query"
+import { useDashboardStats } from "./hooks/use-dashboard-stats"
 
 // --- CSS Styles ---
 const MAP_STYLES = `
@@ -90,8 +91,11 @@ export default function Dashboard01Block() {
   const hwidSearch = filterValue && !isIPAddress(filterValue) ? filterValue : ""
   const ipSearch = filterValue && isIPAddress(filterValue) ? filterValue : ""
 
+  // Fetch dashboard stats
+  const { data: dashboardStats } = useDashboardStats()
+
   // Fetch map data
-  const { data: mapData, isLoading } = useQuery({
+  const { data: mapData, isLoading, error: mapError } = useQuery({
     queryKey: ['map-requests', hwidSearch, ipSearch],
     queryFn: () => getMapRequests({
       hwid: hwidSearch || undefined,
@@ -101,9 +105,22 @@ export default function Dashboard01Block() {
     refetchInterval: 30000, // Refetch every 30 seconds
   })
 
+  // Log map data when it changes
+  useEffect(() => {
+    if (mapData) {
+      console.log('[MAP] Map data fetched:', { 
+        points: mapData.points?.length || 0, 
+        cities: mapData.cities?.length || 0 
+      })
+    }
+    if (mapError) {
+      console.error('[MAP] Error fetching map data:', mapError)
+    }
+  }, [mapData, mapError])
+
   // Calculate totals for Float Card
   const stats = useMemo(() => {
-    if (!mapData) {
+    if (!dashboardStats?.overview) {
       return {
         totalRequests: 0,
         totalConnections: 0,
@@ -112,25 +129,38 @@ export default function Dashboard01Block() {
       }
     }
 
+    const overview = dashboardStats.overview
     return {
-      totalRequests: mapData.total_points,
-      totalConnections: mapData.total_points, // Using same value for now
-      totalKeys: mapData.total_points, // Mock data - replace with real API data
-      totalUsers: mapData.total_points // Mock data - replace with real API data
+      totalRequests: overview.requests?.total || 0,
+      totalConnections: overview.connections?.total || 0,
+      totalKeys: overview.keys?.active || 0,
+      totalUsers: overview.users?.total || 0
     }
-  }, [mapData])
+  }, [dashboardStats])
 
   // Determine what to show based on zoom level
   const shouldShowCities = currentZoom < 8 // Show cities on low zoom
   const shouldShowPoints = currentZoom >= 8 // Show individual points on high zoom
 
   const setupMapLayers = useCallback((points: MapRequestPoint[]) => {
-    if (!map.current || points.length === 0) return
+    if (!map.current) {
+      console.warn('[MAP] Map not initialized')
+      return
+    }
+    
+    if (points.length === 0) {
+      console.warn('[MAP] No points provided to setupMapLayers')
+      return
+    }
+
+    console.log('[MAP] Setting up layers for', points.length, 'points')
 
     // Check if map style is loaded before adding sources
     if (!map.current.isStyleLoaded()) {
+      console.log('[MAP] Style not loaded, waiting...')
       // Wait for style to load before proceeding
       map.current.once('style.load', () => {
+        console.log('[MAP] Style loaded, retrying setupMapLayers')
         setupMapLayers(points)
       })
       return
@@ -151,19 +181,33 @@ export default function Dashboard01Block() {
     }
 
     const source = map.current.getSource('requests') as GeoJSONSource | null
+    const geoJsonData = createGeoJSON(points)
+    console.log('[MAP] GeoJSON created:', { 
+      featuresCount: geoJsonData.features.length,
+      sampleFeature: geoJsonData.features[0] 
+    })
+
     if (source) {
-      source.setData(createGeoJSON(points))
+      console.log('[MAP] Updating existing source')
+      source.setData(geoJsonData)
       return
     }
 
+    console.log('[MAP] Adding new source with clustering')
     // Добавляем источник данных с кластеризацией
-    map.current.addSource('requests', {
-      type: 'geojson',
-      data: createGeoJSON(points),
-      cluster: true,
-      clusterMaxZoom: 8, // Максимальный зум для кластеризации (города)
-      clusterRadius: 50, // Радиус кластеризации в пикселях
-    })
+    try {
+      map.current.addSource('requests', {
+        type: 'geojson',
+        data: geoJsonData,
+        cluster: true,
+        clusterMaxZoom: 8, // Максимальный зум для кластеризации (города)
+        clusterRadius: 50, // Радиус кластеризации в пикселях
+      })
+      console.log('[MAP] Source added successfully')
+    } catch (error) {
+      console.error('[MAP] Error adding source:', error)
+      return
+    }
 
     // Слой для кластеров (города на низком зуме)
     map.current.addLayer({
@@ -314,19 +358,33 @@ export default function Dashboard01Block() {
 
   // Update map when data changes
   useEffect(() => {
-    if (!map.current || !mapData) return
+    if (!map.current || !mapData) {
+      console.log('[MAP] No map or data:', { hasMap: !!map.current, hasData: !!mapData })
+      return
+    }
 
     const points = mapData.points || []
+    console.log('[MAP] Data received:', { 
+      totalPoints: points.length, 
+      totalCities: mapData.cities?.length || 0,
+      samplePoint: points[0] 
+    })
+
     if (points.length > 0) {
       // Only setup layers if style is loaded, otherwise setupMapLayers will wait for it
       if (map.current.isStyleLoaded()) {
+        console.log('[MAP] Setting up layers with', points.length, 'points')
         setupMapLayers(points)
       } else {
+        console.log('[MAP] Waiting for style to load')
         // Wait for style to load before setting up layers
         map.current.once('style.load', () => {
+          console.log('[MAP] Style loaded, setting up layers with', points.length, 'points')
           setupMapLayers(points)
         })
       }
+    } else {
+      console.warn('[MAP] No points to display')
     }
   }, [mapData, setupMapLayers])
 
@@ -372,7 +430,7 @@ export default function Dashboard01Block() {
 
       map.current.once("load", () => {
         map.current?.resize()
-        if (mapData?.points && mapData.points.length > 0) {
+        if (mapData && mapData.points && mapData.points.length > 0) {
           setupMapLayers(mapData.points)
         }
       })
@@ -394,7 +452,7 @@ export default function Dashboard01Block() {
 
     map.current.setStyle(mapStyle)
     map.current.once("style.load", () => {
-      if (mapData?.points && mapData.points.length > 0) {
+      if (mapData && mapData.points && mapData.points.length > 0) {
         setupMapLayers(mapData.points)
       }
     })
@@ -526,6 +584,26 @@ export default function Dashboard01Block() {
         ref={mapContainer}
         className="absolute inset-0 w-full h-full"
       />
+      {!isLoading && mapData && (!mapData.points || mapData.points.length === 0) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-lg">
+          <div className="text-center p-4">
+            <p className="text-sm font-medium text-muted-foreground mb-1">No location data available</p>
+            <p className="text-xs text-muted-foreground/70">
+              {mapData.total_points === 0 
+                ? "No requests with valid IP addresses found. Private IP addresses (172.x.x.x, 192.168.x.x) are not shown on the map."
+                : "Unable to determine locations for the requests."}
+            </p>
+          </div>
+        </div>
+      )}
+      {mapError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-lg">
+          <div className="text-center p-4">
+            <p className="text-sm font-medium text-destructive mb-1">Error loading map data</p>
+            <p className="text-xs text-muted-foreground/70">Please try refreshing the page</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

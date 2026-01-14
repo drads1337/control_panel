@@ -277,30 +277,85 @@ const KeyDetailsDialog: React.FC<KeyDetailsDialogProps> = ({ open, onOpenChange,
                       </Label>
                     </div>
                     
-                    {keyDetails?.devices && keyDetails.devices.length > 0 ? (
-                      <div className="border rounded-md divide-y">
-                        {keyDetails.devices.map((device: any, i: number) => (
-                          <div key={i} className="p-2.5 text-xs hover:bg-muted/20 transition-colors">
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="font-mono font-medium bg-muted/50 px-1 rounded text-[10px]">
-                                {device.ip_address || 'Unknown IP'}
-                              </span>
-                              <span className="text-muted-foreground text-[10px]">
-                                {device.last_seen ? new Date(device.last_seen).toLocaleDateString() : '-'}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
-                              <div className="truncate">
-                                <span className="text-[10px] opacity-70">HWID:</span> {device.device_id || 'N/A'}
+                    {keyDetails?.devices && keyDetails.devices.length > 0 ? (() => {
+                      // Group devices by IP address
+                      const devicesByIP = keyDetails.devices.reduce((acc: any, device: any) => {
+                        const ip = device.ip_address || 'Unknown IP';
+                        if (!acc[ip]) {
+                          acc[ip] = [];
+                        }
+                        acc[ip].push(device);
+                        return acc;
+                      }, {} as Record<string, any[]>);
+
+                      const ipAddresses = Object.keys(devicesByIP);
+
+                      return (
+                        <div className="border rounded-md divide-y">
+                          {ipAddresses.map((ip) => {
+                            const devicesForIP = devicesByIP[ip];
+                            const hasMultipleDevices = devicesForIP.length > 1;
+                            const isPrivateIP = ip.startsWith('172.') || ip.startsWith('192.168.') || ip.startsWith('10.');
+
+                            return (
+                              <div key={ip} className={hasMultipleDevices ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}>
+                                {/* IP Header */}
+                                <div className="p-2 border-b bg-muted/30 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-medium text-[10px]">
+                                      {ip}
+                                    </span>
+                                    {hasMultipleDevices && (
+                                      <Badge variant="outline" className="text-[9px] h-4 px-1 bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200">
+                                        {devicesForIP.length} {devicesForIP.length === 1 ? 'device' : 'devices'}
+                                      </Badge>
+                                    )}
+                                    {isPrivateIP && (
+                                      <Badge variant="outline" className="text-[9px] h-4 px-1 bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200">
+                                        Private
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {hasMultipleDevices && (
+                                    <span className="text-[9px] text-amber-600 dark:text-amber-400 font-medium">
+                                      Same IP
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* Devices for this IP */}
+                                {devicesForIP.map((device: any, i: number) => (
+                                  <div key={`${ip}-${i}`} className="p-2.5 text-xs hover:bg-muted/20 transition-colors">
+                                    <div className="flex justify-between items-start mb-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] opacity-70">HWID:</span>
+                                        <code className="font-mono text-[10px] bg-muted/50 px-1 rounded">
+                                          {device.device_id || device.serial || 'N/A'}
+                                        </code>
+                                      </div>
+                                      <span className="text-muted-foreground text-[10px]">
+                                        {device.last_seen ? new Date(device.last_seen).toLocaleDateString() : '-'}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
+                                      <div className="truncate">
+                                        <span className="text-[10px] opacity-70">Connected:</span>{' '}
+                                        <span className="text-[10px]">
+                                          {device.connected_at ? new Date(device.connected_at).toLocaleDateString() : '-'}
+                                        </span>
+                                      </div>
+                                      <div className="truncate text-right">
+                                        {device.device_model || device.device_brand || 'Generic Device'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                              <div className="truncate text-right">
-                                {device.device_model || device.device_brand || 'Generic Device'}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
+                            );
+                          })}
+                        </div>
+                      );
+                    })() : (
                       <div className="py-6 text-center border border-dashed rounded-md bg-muted/10">
                         <p className="text-xs text-muted-foreground">No devices connected.</p>
                       </div>

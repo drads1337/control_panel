@@ -10,8 +10,6 @@ import {
   isAdmin,
   isOwner,
   isSeller,
-  isDeveloper,
-  isSupport,
   isClient,
   getPrimaryRole,
   getRoleDisplayName,
@@ -64,8 +62,6 @@ export function usePermissions() {
         isAdmin: false,
         isOwner: false,
         isSeller: false,
-        isDeveloper: false,
-        isSupport: false,
         isClient: false,
 
         primaryRole: null,
@@ -99,8 +95,6 @@ export function usePermissions() {
       isAdmin: isAdmin(user),
       isOwner: isOwner(user),
       isSeller: isSeller(user),
-      isDeveloper: isDeveloper(user),
-      isSupport: isSupport(user),
       isClient: isClient(user),
 
       primaryRole: getPrimaryRole(user),
@@ -176,7 +170,7 @@ function getAvailableRolesForAssignment(user: any): string[] {
   if (!user) return []
 
   if (isOwner(user) || isAdmin(user)) {
-    return ['manager', 'seller', 'developer', 'support', 'client']
+    return ['manager', 'seller', 'client']
   }
 
   return []

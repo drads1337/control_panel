@@ -13,6 +13,7 @@ from ...core.extensions import db
 from ...middleware.auth import enforce_project_scope, require_project_with_grace_period
 from ...middleware.validation import validate_request
 from ...models import Product, User, ProductLibraryHashSettings
+from ...models.remote_control import RemoteCategory, RemoteFeature
 from ...schemas.product import ProductBulkDeleteSchema, ProductBulkStatusUpdateSchema
 from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
@@ -162,6 +163,16 @@ def bulk_delete_products(validated_data=None):
         deleted_count = 0
         product_names = []
         product_ids_deleted = []
+
+        # Explicitly delete related RemoteFeature records first (they depend on RemoteCategory)
+        # This prevents SQLAlchemy from trying to set product_id to NULL
+        RemoteFeature.query.filter(RemoteFeature.product_id.in_(product_ids)).delete(synchronize_session=False)
+        db.session.flush()
+
+        # Explicitly delete related RemoteCategory records before deleting products
+        # This prevents SQLAlchemy from trying to set product_id to NULL
+        RemoteCategory.query.filter(RemoteCategory.product_id.in_(product_ids)).delete(synchronize_session=False)
+        db.session.flush()
 
         # Explicitly delete related ProductLibraryHashSettings for all products before deleting them
         ProductLibraryHashSettings.query.filter(ProductLibraryHashSettings.product_id.in_(product_ids)).delete(synchronize_session=False)

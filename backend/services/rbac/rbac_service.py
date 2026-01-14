@@ -502,67 +502,9 @@ class RBACService:
                     "agents.status",
                 ],
             },
-            "support": {
-                "description": "Customer support access",
-                "permissions": [
-
-                    "clients.view",
-                    "clients.edit",
-
-                    "keys.view",
-                    "keys.reset_pc_binding",
-
-                    "security.view_fingerprints",
-                    "security.view_ips",
-                    "security.view_hwids",
-                    "security.view_analytics",
-                    "security.view_events",
-                    "security.view_2fa",
-                    "security.view_logs",
-                    "security.view_sessions",
-                    "security.view_audit",
-                    "security.view_threats",
-                    "security.view_compliance",
-                    "remote_control.view",
-                    "remote_control.view_stats",
-                    "remote_control.view_sessions",
-                    "remote_control.view_permissions",
-                    "remote_control.view_templates",
-                    "remote_control.view_logs",
-                    "billing.view_balance",
-                    "billing.view_transactions",
-                ],
-            },
             "client": {
                 "description": "Basic client access",
                 "permissions": ["keys.view", "billing.view_balance", "billing.view_transactions"],
-            },
-            "billing_manager": {
-                "description": "Billing and balance management",
-                "permissions": [
-
-                    "clients.view",
-                    "clients.edit",
-
-                    "billing.view_balance",
-                    "billing.top_up_balance",
-                    "billing.deduct_balance",
-                    "billing.view_transactions",
-                    "analytics.view",
-                ],
-            },
-            "developer": {
-                "description": "Developer access with file management and remote control",
-                "permissions": [
-
-                    "remote_control.view",
-                    "remote_control.create",
-                    "remote_control.edit",
-                    "remote_control.delete",
-                    "remote_control.toggle",
-
-                    "analytics.view",
-                ],
             },
         }
 

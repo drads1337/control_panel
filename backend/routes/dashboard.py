@@ -11,7 +11,7 @@ from ..core.extensions import db
 from ..middleware.auth import require_project_isolation, require_project_with_grace_period
 from ..models.core import Project, User, UserActivity
 from ..models.products import Announcement, Product, ProductKeyPrice
-from ..models.keys import Key
+from ..models.keys import Key, DeviceInfo
 from ..models.servers import Server
 from ..services.monitoring.prometheus_metrics_reader import prometheus_metrics_reader
 from ..utils.rbac_utils import RBACManager
@@ -65,6 +65,14 @@ def get_dashboard_stats(project_id=None):
             active_keys = Key.query.filter(
                 and_(Key.project_id == project_filter, Key.status == 1)
             ).count()
+            # Total requests (UserActivity)
+            total_requests = UserActivity.query.filter(
+                UserActivity.project_id == project_filter
+            ).count()
+            # Total connections (DeviceInfo via Key)
+            total_connections = db.session.query(DeviceInfo).join(Key).filter(
+                Key.project_id == project_filter
+            ).count()
         elif is_owner:
 
             total_users = User.query.count()
@@ -75,6 +83,10 @@ def get_dashboard_stats(project_id=None):
                 or_(User.expires_at.is_(None), User.expires_at > datetime.utcnow())
             ).count()
             active_keys = Key.query.filter(Key.status == 1).count()
+            # Total requests (UserActivity)
+            total_requests = UserActivity.query.count()
+            # Total connections (DeviceInfo)
+            total_connections = DeviceInfo.query.count()
         else:
 
             return jsonify({"error": "Project isolation required"}), 403
@@ -354,6 +366,12 @@ def get_dashboard_stats(project_id=None):
                     "total": sum(item["count"] for item in activity_data),
                     "today": activity_data[-1]["count"] if activity_data else 0,
                     "week": sum(item["count"] for item in activity_data),
+                },
+                "requests": {
+                    "total": total_requests or 0,
+                },
+                "connections": {
+                    "total": total_connections or 0,
                 },
             },
             "role_stats": role_stats,
@@ -1022,57 +1040,99 @@ def get_map_requests(project_id=None):
                 )
             )
         
+        # Filter out private/local IP addresses (but we'll still try to process them)
+        private_ip_prefixes = ["127.", "192.168.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", 
+                               "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", 
+                               "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", 
+                               "169.254.", "::1", "localhost"]
+        
         # Get activities with IP addresses
         activities = query.filter(
             UserActivity.ip_address.isnot(None),
             UserActivity.ip_address.notin_(["127.0.0.1", "localhost", "::1", "unknown"])
         ).limit(10000).all()  # Limit to prevent memory issues
         
+        logging.info(f"Found {len(activities)} activities with IP addresses for project {project_filter}")
+        
+        # Pre-fetch all keys for user_ids to avoid N+1 queries
+        user_ids = list(set([a.user_id for a in activities if a.user_id]))
+        keys_by_user_id = {}
+        if user_ids:
+            keys = Key.query.filter(Key.user_id.in_(user_ids)).all()
+            keys_by_user_id = {key.user_id: key for key in keys}
+        
         # Get coordinates from IP addresses
         points = []
         city_groups = {}  # For grouping by city
+        
+        private_ip_count = 0
+        no_coords_count = 0
+        processed_count = 0
         
         for activity in activities:
             if not activity.ip_address:
                 continue
             
+            # Check if private IP
+            is_private = any(activity.ip_address.startswith(prefix) for prefix in private_ip_prefixes)
+            if is_private:
+                private_ip_count += 1
+                # For private IPs, try to use country/city from UserActivity if available
+                if activity.country and activity.city:
+                    # Try to get approximate coordinates from country (use country center)
+                    # For now, we'll use a fallback location based on country
+                    # But since we don't have country coordinates mapping here, we'll skip
+                    # Private IPs are typically from internal networks and don't have real locations
+                    continue
+                else:
+                    # No location info for private IP, skip
+                    continue
+            
             lat, lng, country, city = get_coordinates_from_ip(activity.ip_address)
             
-            if lat and lng:
-                # Get hwid/fingerprint from related Key if available
-                hwid = None
-                if activity.user_id:
-                    key = Key.query.filter_by(user_id=activity.user_id).first()
-                    if key:
-                        hwid = key.fingerprint or key.devices
-                
-                point = {
-                    "id": activity.id,
-                    "ip_address": activity.ip_address,
-                    "hwid": hwid,
-                    "city": city or "Unknown",
-                    "country": country or "Unknown",
+            # If coordinates are not available, try to use country/city from UserActivity if available
+            if not lat or not lng:
+                no_coords_count += 1
+                # If we have country/city from UserActivity, we could use approximate location
+                # For now, skip entries without coordinates
+                continue
+            
+            # Get hwid/fingerprint from pre-fetched Key
+            hwid = None
+            if activity.user_id and activity.user_id in keys_by_user_id:
+                key = keys_by_user_id[activity.user_id]
+                hwid = key.fingerprint or key.devices
+            
+            point = {
+                "id": activity.id,
+                "ip_address": activity.ip_address,
+                "hwid": hwid,
+                "city": city or activity.city or "Unknown",
+                "country": country or activity.country or "Unknown",
+                "lat": float(lat),
+                "lng": float(lng),
+                "action": activity.action,
+                "created_at": activity.created_at.isoformat() if activity.created_at else None,
+                "user_id": activity.user_id,
+            }
+            points.append(point)
+            
+            # Group by city for clustering
+            city_key = f"{city or activity.city or 'Unknown'},{country or activity.country or 'Unknown'}"
+            if city_key not in city_groups:
+                city_groups[city_key] = {
+                    "city": city or activity.city or "Unknown",
+                    "country": country or activity.country or "Unknown",
                     "lat": float(lat),
                     "lng": float(lng),
-                    "action": activity.action,
-                    "created_at": activity.created_at.isoformat() if activity.created_at else None,
-                    "user_id": activity.user_id,
+                    "count": 0,
+                    "points": []
                 }
-                points.append(point)
-                
-                # Group by city for clustering
-                city_key = f"{city or 'Unknown'},{country or 'Unknown'}"
-                if city_key not in city_groups:
-                    city_groups[city_key] = {
-                        "city": city or "Unknown",
-                        "country": country or "Unknown",
-                        "lat": float(lat),
-                        "lng": float(lng),
-                        "count": 0,
-                        "points": []
-                    }
-                city_groups[city_key]["count"] += 1
-                city_groups[city_key]["points"].append(point)
+            city_groups[city_key]["count"] += 1
+            city_groups[city_key]["points"].append(point)
+            processed_count += 1
+        
+        logging.info(f"Map processing: {processed_count} points processed, {private_ip_count} private IPs skipped, {no_coords_count} without coordinates")
         
         # Convert city groups to list
         cities = []
@@ -1085,6 +1145,8 @@ def get_map_requests(project_id=None):
                 "requests": group["count"],
                 "points": group["points"]  # Individual points for this city
             })
+        
+        logging.info(f"Map requests: {len(points)} points, {len(cities)} cities for project {project_filter}")
         
         return jsonify({
             "points": points,  # All individual points

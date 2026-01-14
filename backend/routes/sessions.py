@@ -84,7 +84,7 @@ def get_sessions():
                 if user.project_id:
 
                     role_user_ids = (
-                        get_users_with_roles(["seller", "developer"], user.project_id)
+                        get_users_with_roles(["seller"], user.project_id)
                         .with_entities(User.id)
                         .all()
                     )
@@ -93,7 +93,7 @@ def get_sessions():
                 else:
 
                     role_user_ids = (
-                        get_users_with_roles(["seller", "developer"])
+                        get_users_with_roles(["seller"])
                         .filter(User.project_id.is_(None))
                         .with_entities(User.id)
                         .all()
@@ -307,14 +307,14 @@ def get_session_stats():
                         (User.project_id == user.project_id)
                         & (
                             User.id.in_(
-                                get_user_ids_with_roles(["seller", "developer"], user.project_id)
+                                get_user_ids_with_roles(["seller"], user.project_id)
                             )
                         )
                     )
                 else:
                     query = query.filter(
                         (User.project_id.is_(None))
-                        & (User.id.in_(get_user_ids_with_roles(["seller", "developer"], None)))
+                        & (User.id.in_(get_user_ids_with_roles(["seller"], None)))
                     )
         else:
             query = query.filter(User.project_id == user.project_id)
@@ -349,7 +349,7 @@ def get_session_stats():
                         (User.project_id == user.project_id)
                         & (
                             User.id.in_(
-                                get_user_ids_with_roles(["seller", "developer"], user.project_id)
+                                get_user_ids_with_roles(["seller"], user.project_id)
                             )
                         )
                     )
@@ -358,7 +358,7 @@ def get_session_stats():
                     (User.project_id.is_(None))
                     & (
                         User.id.in_(
-                            get_user_ids_with_roles(["seller", "developer"], user.project_id)
+                            get_user_ids_with_roles(["seller"], user.project_id)
                         )
                     )
                 )
@@ -390,7 +390,7 @@ def get_session_stats():
                         (User.project_id == user.project_id)
                         & (
                             User.id.in_(
-                                get_user_ids_with_roles(["seller", "developer"], user.project_id)
+                                get_user_ids_with_roles(["seller"], user.project_id)
                             )
                         )
                     )
@@ -399,7 +399,7 @@ def get_session_stats():
                     (User.project_id.is_(None))
                     & (
                         User.id.in_(
-                            get_user_ids_with_roles(["seller", "developer"], user.project_id)
+                            get_user_ids_with_roles(["seller"], user.project_id)
                         )
                     )
                 )
@@ -470,7 +470,7 @@ def terminate_session(user_id):
                     return jsonify({"error": "Access denied"}), 403
 
                 target_user_roles = RBACManager.get_user_role_names(target_user)
-                if not any(role in ["seller", "developer"] for role in target_user_roles):
+                if not any(role in ["seller"] for role in target_user_roles):
                     return jsonify({"error": "Access denied"}), 403
                 if current_user.id == target_user.id:
                     return jsonify({"error": "Cannot terminate your own session"}), 400
@@ -545,7 +545,7 @@ def bulk_terminate_sessions(validated_data=None):
                         ) or rbac_service.check_permission(current_user.id, "clients.edit")
                         if can_manage and current_user.project_id == target_user.project_id:
                             target_user_roles = RBACManager.get_user_role_names(target_user)
-                            if any(role in ["seller", "developer"] for role in target_user_roles):
+                            if any(role in ["seller"] for role in target_user_roles):
                                 can_terminate = True
 
                     if can_terminate:
@@ -598,7 +598,7 @@ def get_session_details(user_id):
                 if current_user.project_id != target_user.project_id:
                     return jsonify({"error": "Access denied"}), 403
                 target_user_roles = RBACManager.get_user_role_names(target_user)
-                if not any(role in ["seller", "developer"] for role in target_user_roles):
+                if not any(role in ["seller"] for role in target_user_roles):
                     return jsonify({"error": "Access denied"}), 403
         else:
             return jsonify({"error": "Access denied"}), 403
@@ -722,14 +722,14 @@ def get_realtime_sessions():
                         (User.project_id == user.project_id)
                         & (
                             User.id.in_(
-                                get_user_ids_with_roles(["seller", "developer"], user.project_id)
+                                get_user_ids_with_roles(["seller"], user.project_id)
                             )
                         )
                     )
                 else:
                     query = query.filter(
                         (User.project_id.is_(None))
-                        & (User.id.in_(get_user_ids_with_roles(["seller", "developer"], None)))
+                        & (User.id.in_(get_user_ids_with_roles(["seller"], None)))
                     )
         else:
             query = query.filter(User.project_id == user.project_id)

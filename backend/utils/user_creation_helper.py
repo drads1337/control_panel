@@ -90,7 +90,7 @@ def create_user_with_roles_and_products(
 
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"USER_CREATION_START: Creating user with username='{username}' (len={len(username) if username else 0}), email='{email}', project_id={data.get('project_id')}")
+        logger.info(f"USER_CREATION_START: Creating user with username='{username}' (len={len(username) if username else 0}), email='{email}', project_id={data.get('project_id')}, product_ids={product_ids}, rbac_role_ids={rbac_role_ids}")
 
 
         if not username or not password:
@@ -231,12 +231,24 @@ def create_user_with_roles_and_products(
             db.session.add(user_transaction)
 
 
-        if project_id and product_ids:
+        if project_id:
+            # Always process product_ids if project_id is present
+            # This ensures product permissions are assigned when product_ids are provided
+            logger.info(f"USER_CREATION: Processing product_ids for user {user.id}, project_id={project_id}, product_ids={product_ids}")
             processed_product_ids = user_permission_service.process_product_ids_from_data(product_ids)
+            logger.info(f"USER_CREATION: Processed product_ids: {processed_product_ids}")
             if processed_product_ids:
-                user_permission_service.assign_product_permissions(
+                logger.info(f"USER_CREATION: Assigning product permissions for user {user.id}, products: {processed_product_ids}")
+                result = user_permission_service.assign_product_permissions(
                     user.id, project_id, processed_product_ids
                 )
+                if result:
+                    logger.info(f"USER_CREATION: Successfully assigned product permissions for user {user.id}")
+                else:
+                    logger.error(f"USER_CREATION: Failed to assign product permissions for user {user.id}")
+            else:
+                # If product_ids was provided but processed to empty, log it
+                logger.warning(f"USER_CREATION: product_ids provided ({product_ids}) but processed to empty list for user {user.id}")
 
 
         if rbac_role_ids and project_id:

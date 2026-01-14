@@ -137,16 +137,3 @@ export function SellerRender({ fallback = null, children }: { fallback?: React.R
   const { isSeller } = usePermissions();
   return isSeller ? <>{children}</> : <>{fallback}</>;
 }
-
-export function DeveloperRender({ fallback = null, children }: { fallback?: React.ReactNode; children: React.ReactNode }) {
-  const { isDeveloper } = usePermissions();
-  return isDeveloper ? <>{children}</> : <>{fallback}</>;
-}
-
-
-
-
-
-
-
-

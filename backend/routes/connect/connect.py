@@ -17,6 +17,7 @@ from ...middleware.mtls import (
 )
 from ...middleware.rate_limiting import connect_rate_limit
 from ...utils.service_helpers import get_service
+from ...utils.ip_utils import get_real_ip
 
 connect_bp = Blueprint("connect", __name__)
 
@@ -69,7 +70,7 @@ def get_challenge():
             logger.warning(f"mTLS project check failed: {msg}, cn={cn}")
             return jsonify({"error": f"mTLS validation failed: {msg}"}), 403
 
-    ip = request.remote_addr
+    ip = get_real_ip()
     response, status_code = connect_service.handle_challenge_request(
         user_key=user_key,
         fingerprint=fingerprint,
@@ -100,7 +101,7 @@ def api_connect():
     security_service = get_service('security_service')
     
     logger.debug("=== CONNECT REQUEST RECEIVED ===")
-    ip = request.remote_addr
+    ip = get_real_ip()
     user_agent = request.headers.get("User-Agent", "")
     logger.info(f"CONNECT_ATTEMPT ip={ip} user_agent={user_agent}")
     try:
@@ -286,7 +287,7 @@ def classic_connect():
     connect_service = get_service('connect_service')
     
     logger.debug("=== CLASSIC CONNECT REQUEST RECEIVED ===")
-    ip = request.remote_addr
+    ip = get_real_ip()
     user_agent = request.headers.get("User-Agent", "")
     logger.info(f"CLASSIC_CONNECT_ATTEMPT ip={ip} user_agent={user_agent}")
 

@@ -133,7 +133,7 @@ class TelegramBotManager:
             return None
 
     def format_message(self, sender_type, sender_name, message):
-        role_emoji = {"admin": "👑", "seller": "💰", "developer": "🔧", "client": "👤"}
+        role_emoji = {"admin": "👑", "seller": "💰", "client": "👤"}
 
         emoji = role_emoji.get(sender_type, "❓")
         return f"{emoji} <b>{sender_name}</b>\n{message}"
@@ -220,7 +220,7 @@ def send_message(project_id=None):
             if RBACManager.get_user_role_names(user)
             else (
                 "client"
-                if RBACManager.has_any_role(user, ["admin", "seller", "developer"])
+                if RBACManager.has_any_role(user, ["admin", "seller"])
                 else "client"
             )
         )

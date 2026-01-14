@@ -162,7 +162,7 @@ export function UsersPage() {
   }, [activeTab, availableTabs])
 
   const employeeRolesFilter = useMemo(
-    () => ["admin", "seller", "developer", "moderator"],
+    () => ["admin", "seller", "moderator"],
     []
   )
 

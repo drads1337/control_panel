@@ -32,9 +32,9 @@ import { usePermissions } from '@/shared/hooks/use-permissions'
 
 const StatusBadge: React.FC<{ isActive: boolean }> = ({ isActive }) => {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       <span className={cn(
-        "w-2 h-2 rounded-full",
+        "w-1.5 h-1.5 rounded-full",
         isActive ? "bg-green-500" : "bg-destructive"
       )}></span>
       <span className={cn(
@@ -165,9 +165,9 @@ export function WebhooksPage() {
         <div className="@container/main flex flex-1 flex-col gap-2">
           <div className="flex flex-col gap-3 py-3 md:gap-4 md:py-4">
             {/* Header Section */}
-            <div className="px-4 lg:px-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
-                <div className="flex-1 min-w-0">
+            <div className="px-4 lg:px-6 mb-2">
+              <div className="flex items-center justify-between">
+                <div>
                   <h1 className="text-lg xs:text-xl sm:text-xl md:text-2xl font-bold tracking-tight text-foreground leading-tight">
                     Webhooks
                   </h1>
@@ -235,15 +235,15 @@ export function WebhooksPage() {
             {/* Table */}
             {!loading && !error && webhooks.length > 0 && (
               <div className="px-4 lg:px-6">
-                <div className="border border-muted-foreground/10 rounded-md bg-muted/10">
+                <div className="rounded-lg border bg-background">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>URL</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                    <TableHeader className="bg-background sticky top-0 z-10 shadow-sm">
+                      <TableRow className="h-9 hover:bg-transparent border-b-muted-foreground/10">
+                        <TableHead className="text-xs h-9 font-medium text-muted-foreground">Name</TableHead>
+                        <TableHead className="text-xs h-9 font-medium text-muted-foreground">Type</TableHead>
+                        <TableHead className="text-xs h-9 font-medium text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-xs h-9 font-medium text-muted-foreground">URL</TableHead>
+                        <TableHead className="text-xs h-9 font-medium text-muted-foreground text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -255,18 +255,23 @@ export function WebhooksPage() {
                           : `Discord: ${webhook.discord_channel_id || 'N/A'}`
 
                         return (
-                          <TableRow key={webhook.id}>
-                            <TableCell className="font-medium">{webhook.name}</TableCell>
-                            <TableCell>
-                              <span className="capitalize">{webhook.webhook_type}</span>
+                          <TableRow 
+                            key={webhook.id}
+                            className="h-12 text-xs border-b-muted-foreground/5 hover:bg-background hover:shadow-sm transition-all"
+                          >
+                            <TableCell className="py-2">
+                              <div className="text-xs font-semibold text-foreground leading-tight">{webhook.name}</div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="py-2">
+                              <span className="text-xs capitalize text-foreground">{webhook.webhook_type}</span>
+                            </TableCell>
+                            <TableCell className="py-2">
                               <StatusBadge isActive={webhook.is_active} />
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="py-2">
                               {displayUrl ? (
                                 <div className="flex items-center gap-1 max-w-[200px]">
-                                  <span className="text-xs font-mono truncate">{displayUrl}</span>
+                                  <span className="text-xs font-mono truncate text-foreground">{displayUrl}</span>
                                   {webhook.webhook_type === 'custom' && webhook.url && (
                                     <Button
                                       variant="ghost"
@@ -285,13 +290,13 @@ export function WebhooksPage() {
                                 <span className="text-muted-foreground text-xs">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="py-2 text-right">
                               <div className="flex items-center justify-end gap-1">
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => openEditDialog(webhook)}
-                                  className="h-7 w-7 hover:bg-muted/50"
+                                  className="h-6 w-6 p-0"
                                 >
                                   <Edit className="size-3.5" />
                                 </Button>
@@ -299,7 +304,7 @@ export function WebhooksPage() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleToggleStatus(webhook)}
-                                  className="h-7 w-7 hover:bg-muted/50"
+                                  className="h-6 w-6 p-0"
                                 >
                                   {webhook.is_active ? (
                                     <AlertTriangle className="size-3.5" />
@@ -311,7 +316,7 @@ export function WebhooksPage() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleTestWebhook(webhook.id)}
-                                  className="h-7 w-7 hover:bg-muted/50"
+                                  className="h-6 w-6 p-0"
                                 >
                                   <Send className="size-3.5" />
                                 </Button>
@@ -319,7 +324,7 @@ export function WebhooksPage() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleDelete(webhook.id)}
-                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 >
                                   <Trash2 className="size-3.5" />
                                 </Button>

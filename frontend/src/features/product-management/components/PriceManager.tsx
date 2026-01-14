@@ -31,12 +31,14 @@ interface PriceManagerProps {
 
 const COMMON_DURATIONS = [
   { value: '1', label: '1 hour' },
+    { value: '6', label: '6 hours' },
   { value: '12', label: '12 hours' },
   { value: '24', label: '1 day' },
   { value: '72', label: '3 days' },
   { value: '168', label: '1 week' },
   { value: '336', label: '2 weeks' },
   { value: '720', label: '1 month' },
+  { value: '1440', label: '2 months' },
   { value: '2160', label: '3 months' },
   { value: '4320', label: '6 months' },
   { value: '8760', label: '1 year' },

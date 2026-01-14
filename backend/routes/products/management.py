@@ -17,6 +17,7 @@ from ...middleware.validation import validate_request
 from ...models import Product, User, ProductLibraryHashSettings
 from ...models.agents import AgentProductAssignment
 from ...models.core import UserProductPermission
+from ...models.remote_control import RemoteCategory, RemoteFeature
 from ...schemas.product import ProductCreateSchema, ProductStatusUpdateSchema, ProductUpdateSchema
 from ...utils.service_helpers import get_service
 from ...utils.rbac_utils import RBACManager
@@ -607,6 +608,16 @@ def delete_product(product_identifier):
 
         product_name = product.name
         product_id = product.id
+
+        # Explicitly delete related RemoteFeature records first (they depend on RemoteCategory)
+        # This prevents SQLAlchemy from trying to set product_id to NULL
+        RemoteFeature.query.filter_by(product_id=product_id).delete(synchronize_session=False)
+        db.session.flush()
+
+        # Explicitly delete related RemoteCategory records before deleting the product
+        # This prevents SQLAlchemy from trying to set product_id to NULL
+        RemoteCategory.query.filter_by(product_id=product_id).delete(synchronize_session=False)
+        db.session.flush()
 
         # Explicitly delete related ProductLibraryHashSettings before deleting the product
         # This prevents SQLAlchemy from trying to set product_id to NULL

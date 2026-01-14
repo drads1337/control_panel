@@ -175,6 +175,13 @@ def add_user(current_user, validated_data=None, project_id=None):
     try:
         activity_service = get_service('activity_service')
         data = validated_data.model_dump(exclude_none=True) if hasattr(validated_data, 'model_dump') else validated_data
+        
+        # Ensure product_ids is included even if it's an empty list
+        # exclude_none=True doesn't exclude empty lists, but let's be explicit
+        if hasattr(validated_data, 'product_ids') and 'product_ids' not in data:
+            data['product_ids'] = validated_data.product_ids if validated_data.product_ids is not None else []
+        
+        logger.info(f"Creating user with data: username={data.get('username')}, product_ids={data.get('product_ids')}, rbac_role_ids={data.get('rbac_role_ids')}")
 
         user = create_user_with_roles_and_products(current_user, data, project_id=project_id)
 

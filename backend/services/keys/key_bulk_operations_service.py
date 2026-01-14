@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from ...core.extensions import db
-from ...models.core import User
+from ...models.core import User, UserProductPermission
 from ...models.products import Product
 from ...models.keys import DeviceInfo, Key
 from ...models.agents import Agent
@@ -71,32 +71,119 @@ class KeyBulkOperationsService:
     
     def _get_keys_by_ids(self, user: User, key_ids: List[int]) -> List[Key]:
         """
-        Get keys by IDs with security check
+        Get keys by IDs with security check and product access filtering
 
         Args:
             user: User requesting keys
             key_ids: List of key IDs
 
         Returns:
-            List of Key objects
+            List of Key objects filtered by product access
         """
         if len(key_ids) > self.max_bulk_operations:
             raise ValueError(f"Too many IDs in one request. Maximum: {self.max_bulk_operations}")
 
-        return Key.query.filter(Key.id.in_(key_ids), Key.project_id == user.project_id).all()
+        query = Key.query.filter(Key.id.in_(key_ids), Key.project_id == user.project_id)
+        
+        # Apply product access filtering for non-owner/admin users
+        if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
+            rbac_service = get_service('rbac_service')
+            has_keys_view = rbac_service.check_permission(user.id, "keys.view")
+            has_keys_manage = rbac_service.check_permission(user.id, "keys.manage")
+            
+            if has_keys_view or has_keys_manage:
+                # User can view/manage all keys, but filter by product access
+                user_product_permissions = UserProductPermission.query.filter_by(
+                    user_id=user.id, has_access=True
+                ).all()
+                allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                if allowed_product_ids:
+                    query = query.filter(Key.product_id.in_(allowed_product_ids))
+                    self.logger.info(
+                        f"🔒 Bulk operations: Filtering keys by product access: {allowed_product_ids}"
+                    )
+                else:
+                    # User has no product access - return empty result
+                    query = query.filter(Key.id < 0)  # This will return no results
+                    self.logger.info(
+                        f"🔒 Bulk operations: User {user.id} has no product access - returning empty result"
+                    )
+            else:
+                # User can only see own keys, filter by product access
+                query = query.filter_by(user_id=user.id)
+                user_product_permissions = UserProductPermission.query.filter_by(
+                    user_id=user.id, has_access=True
+                ).all()
+                allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                if allowed_product_ids:
+                    query = query.filter(Key.product_id.in_(allowed_product_ids))
+                    self.logger.info(
+                        f"🔒 Bulk operations: Filtering own keys by product access: {allowed_product_ids}"
+                    )
+                else:
+                    # User has no product access - return empty result
+                    query = query.filter(Key.id < 0)  # This will return no results
+                    self.logger.info(
+                        f"🔒 Bulk operations: User {user.id} has no product access - returning empty result (own keys only)"
+                    )
+        
+        return query.all()
 
     def _get_keys_by_filters(self, user: User, filters: Dict[str, Any]) -> List[Key]:
         """
-        Get keys by filters for bulk operations
+        Get keys by filters for bulk operations with product access filtering
 
         Args:
             user: User requesting keys
             filters: Filter parameters
 
         Returns:
-            List of Key objects
+            List of Key objects filtered by product access
         """
         query = Key.query.filter_by(project_id=user.project_id)
+        
+        # Apply product access filtering for non-owner/admin users
+        if not RBACManager.is_owner(user) and not RBACManager.is_admin(user):
+            rbac_service = get_service('rbac_service')
+            has_keys_view = rbac_service.check_permission(user.id, "keys.view")
+            has_keys_manage = rbac_service.check_permission(user.id, "keys.manage")
+            
+            if has_keys_view or has_keys_manage:
+                # User can view/manage all keys, but filter by product access
+                user_product_permissions = UserProductPermission.query.filter_by(
+                    user_id=user.id, has_access=True
+                ).all()
+                allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                if allowed_product_ids:
+                    query = query.filter(Key.product_id.in_(allowed_product_ids))
+                    self.logger.info(
+                        f"🔒 Bulk operations: Filtering keys by product access: {allowed_product_ids}"
+                    )
+                else:
+                    # User has no product access - return empty result
+                    query = query.filter(Key.id < 0)  # This will return no results
+                    self.logger.info(
+                        f"🔒 Bulk operations: User {user.id} has no product access - returning empty result"
+                    )
+            else:
+                # User can only see own keys, filter by product access
+                query = query.filter_by(user_id=user.id)
+                user_product_permissions = UserProductPermission.query.filter_by(
+                    user_id=user.id, has_access=True
+                ).all()
+                allowed_product_ids = [perm.product_id for perm in user_product_permissions]
+                if allowed_product_ids:
+                    query = query.filter(Key.product_id.in_(allowed_product_ids))
+                    self.logger.info(
+                        f"🔒 Bulk operations: Filtering own keys by product access: {allowed_product_ids}"
+                    )
+                else:
+                    # User has no product access - return empty result
+                    query = query.filter(Key.id < 0)  # This will return no results
+                    self.logger.info(
+                        f"🔒 Bulk operations: User {user.id} has no product access - returning empty result (own keys only)"
+                    )
+        
         filter_spec = KeyFilterSpecification(filters, logger=self.logger)
         query = filter_spec.apply(query)
         return query.all()
@@ -216,36 +303,39 @@ class KeyBulkOperationsService:
                 key_price = price_calculation_service.calculate_key_price(
                     product_id=product.id,
                     duration_hours=duration_hours,
-                    project_id=user.project_id
+                    project_id=user.project_id,
+                    max_devices=max_devices
                 )
+                
+                if key_price <= 0:
+                    return 0, "No price configured for this product. Please configure prices before creating keys.", None
                 
                 total_price = key_price * count
                 
-                if total_price > 0:
-                    db.session.refresh(user)
-                    
+                db.session.refresh(user)
+                
 
-                    if user.token_balance < total_price:
-                        return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
-                    
+                if user.token_balance < total_price:
+                    return 0, f"Insufficient balance. Required: {total_price} tokens for {count} keys, Available: {user.token_balance} tokens", None
+                
 
-                    if not self._balance_service:
-                        raise ServiceError(
-                            "Balance Service dependency not injected",
-                            status_code=500
-                        )
-                    balance_service = self._balance_service
-                    success, error_msg, _ = balance_service.deduct_balance(
-                        current_user=user,
-                        target_user_id=user.id,
-                        amount=total_price,
-                        reason=f"Bulk key creation: {count} keys × {duration_hours} hours for product {product.name}",
-                        ip_address=None,
-                        commit=False
+                if not self._balance_service:
+                    raise ServiceError(
+                        "Balance Service dependency not injected",
+                        status_code=500
                     )
-                    
-                    if not success:
-                        return 0, f"Failed to deduct balance: {error_msg}", None
+                balance_service = self._balance_service
+                success, error_msg, _ = balance_service.deduct_balance(
+                    current_user=user,
+                    target_user_id=user.id,
+                    amount=total_price,
+                    reason=f"Bulk key creation: {count} keys × {duration_hours} hours for product {product.name}",
+                    ip_address=None,
+                    commit=False
+                )
+                
+                if not success:
+                    return 0, f"Failed to deduct balance: {error_msg}", None
 
             if not self._key_generation_service:
                 raise ServiceError(

@@ -287,28 +287,28 @@ export default function BlockedIPsList({
   return (
     <div className="space-y-4">
       <Card className="p-3 border rounded-lg bg-background shadow-sm">
-        <CardHeader className="p-0 pb-3 sm:pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <CardHeader className="p-0 mb-1">
+          <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base sm:text-lg">Blocked IP Addresses</CardTitle>
-              <CardDescription className="mt-1 text-xs sm:text-sm">
+              <CardTitle className="text-base">Blocked IP Addresses</CardTitle>
+              <CardDescription className="text-xs">
                 {blockedIPs?.length || 0} total
               </CardDescription>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
               {onRefresh && (
                  <Button 
                  variant="ghost" 
                  size="icon"
                  onClick={onRefresh}
                  disabled={loading}
-                 className="h-9 w-9 sm:h-8 sm:w-8"
+                 className="h-7 w-7 hover:bg-muted/50"
                >
                  {loading ? (
-                   <Spinner className="h-4 w-4 animate-spin" />
+                   <RefreshCw className="size-3.5 animate-spin" />
                  ) : (
-                   <RefreshCw className="h-4 w-4" />
+                   <RefreshCw className="size-3.5" />
                  )}
                </Button>
               )}
@@ -327,15 +327,18 @@ export default function BlockedIPsList({
           </div>
         </CardHeader>
         
-        <CardContent className="p-0 pt-0 pb-4 sm:pb-6 -mt-4">
+        <CardContent className="p-0 pt-0 -mt-4">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner />
+            <div className="flex justify-center py-6">
+              <Spinner message="Loading blocked IPs..." />
             </div>
           ) : filteredIPs.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="p-2 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20 text-center text-xs text-muted-foreground">
-                {searchTerm ? 'No IPs match your search criteria' : 'No IP addresses are currently blocked'}
+            <div className="flex items-center justify-center py-10">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                <Globe className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <div className="text-xs text-muted-foreground">
+                  {searchTerm ? 'No IPs match your search criteria' : 'No IP addresses are currently blocked'}
+                </div>
               </div>
             </div>
           ) : (

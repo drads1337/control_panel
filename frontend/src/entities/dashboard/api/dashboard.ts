@@ -33,6 +33,12 @@ export interface DashboardData {
       today: number
       week: number
     }
+    requests: {
+      total: number
+    }
+    connections: {
+      total: number
+    }
   }
   daily_stats: Array<{
     date: string

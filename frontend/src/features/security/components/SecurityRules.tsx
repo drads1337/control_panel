@@ -9,7 +9,9 @@ import { securityAPI, SecurityRule } from '@/shared/api/security'
 import { toast } from 'sonner'
 import { useSecurityPermissions } from '@/contexts/security-permissions-context'
 import SecuritySettings from './SecuritySettings'
-import { Shield, Globe, Cpu, AlertTriangle, Settings2 } from 'lucide-react'
+import { Shield, Globe, Cpu, AlertTriangle, Settings2, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 interface SecurityRulesProps {
   onRefresh?: () => void
@@ -288,31 +290,51 @@ export default function SecurityRules({ onRefresh, loading = false }: SecurityRu
   return (
     <div className="space-y-4">
       <Card className="p-3 border rounded-lg bg-background shadow-sm">
-        <CardHeader className="p-0 pb-0">
+        <CardHeader className="p-0 mb-1">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-semibold">Security Rules</CardTitle>
+              <CardTitle className="text-base">Security Rules</CardTitle>
               <CardDescription className="text-xs">
                 {filteredRules.length} {filteredRules.length === 1 ? 'rule' : 'rules'} configured
               </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {(onRefresh || refetch) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-muted/50"
+                  onClick={() => {
+                    if (onRefresh) onRefresh()
+                    else refetch()
+                  }}
+                  disabled={isDataLoading}
+                >
+                  <RefreshCw
+                    className={cn(
+                      "size-3.5",
+                      isDataLoading && "animate-spin"
+                    )}
+                  />
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-0 pt-0 -mt-4">
           {isDataLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner />
+            <div className="flex justify-center py-6">
+              <Spinner message="Loading security rules..." />
             </div>
           ) : filteredRules.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Shield className="h-10 w-10 text-muted-foreground/50 mb-2" />
-              <p className="text-xs font-medium text-foreground mb-1">
-                No security rules configured
-              </p>
-              <p className="text-[10px] text-muted-foreground text-center">
-                Security rules will appear here once they are set up
-              </p>
+            <div className="flex items-center justify-center py-10">
+              <div className="text-center p-4 border border-dashed border-muted-foreground/25 rounded-md bg-muted/20">
+                <Shield className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <div className="text-xs text-muted-foreground">
+                  No security rules configured
+                </div>
+              </div>
             </div>
           ) : (
             <RulesList

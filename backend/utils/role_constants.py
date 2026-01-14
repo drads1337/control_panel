@@ -12,15 +12,13 @@ class UserRoles(Enum):
     ADMIN = "admin"
     MODERATOR = "moderator"
     SELLER = "seller"
-    DEVELOPER = "developer"
     CLIENT = "client"
-    SUPPORT = "support"
     USER = "user"
 
 class RolePermissions:
     """Role-based permission constants"""
 
-    ADMIN_ROLES = [UserRoles.OWNER.value, UserRoles.ADMIN.value, UserRoles.SUPPORT.value]
+    ADMIN_ROLES = [UserRoles.OWNER.value, UserRoles.ADMIN.value]
 
     USER_CREATION_ROLES = [UserRoles.OWNER.value, UserRoles.ADMIN.value, UserRoles.MODERATOR.value]
 
@@ -35,14 +33,12 @@ class RolePermissions:
         UserRoles.ADMIN.value,
         UserRoles.MODERATOR.value,
         UserRoles.SELLER.value,
-        UserRoles.DEVELOPER.value,
     ]
 
     REMOTE_CONTROL_ROLES = [
         UserRoles.OWNER.value,
         UserRoles.ADMIN.value,
         UserRoles.MODERATOR.value,
-        UserRoles.DEVELOPER.value,
     ]
 
     WEBHOOK_MANAGEMENT_ROLES = [
@@ -57,14 +53,12 @@ class RolePermissions:
         UserRoles.OWNER.value,
         UserRoles.ADMIN.value,
         UserRoles.MODERATOR.value,
-        UserRoles.SUPPORT.value,
     ]
 
     FILE_MANAGEMENT_ROLES = [
         UserRoles.OWNER.value,
         UserRoles.ADMIN.value,
         UserRoles.MODERATOR.value,
-        UserRoles.DEVELOPER.value,
     ]
 
     PRODUCTS_MANAGEMENT_ROLES = [
@@ -85,7 +79,6 @@ class RolePermissions:
 
     ASSIGNABLE_ROLES = [
         UserRoles.SELLER.value,
-        UserRoles.DEVELOPER.value,
         UserRoles.MODERATOR.value,
     ]
 
@@ -96,6 +89,4 @@ LEGACY_ROLE_MAPPING = {
     "owner": UserRoles.OWNER.value,
     "moderator": UserRoles.MODERATOR.value,
     "seller": UserRoles.SELLER.value,
-    "developer": UserRoles.DEVELOPER.value,
-    "support": UserRoles.SUPPORT.value,
 }
